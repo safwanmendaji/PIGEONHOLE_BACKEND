@@ -37,15 +37,19 @@ public class KYC implements Serializable {
 
     private String kin;
 
+    private String kinNumber;
+
+    private String kin1;
+
+    private String kin1Number;
+
     private String nationalId;
 
     private String gender;
 
     private String age;
-    //
-//    //    private String workID;
-//
-//
+
+
     @Lob
     private byte[] documentData;
 

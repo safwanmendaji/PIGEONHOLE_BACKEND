@@ -24,10 +24,14 @@ public class KYCDataResDto {
     private String phoneNumber;
     private String maritalStatus;
     private String kin;
+    private String kinNumber;
+    private String kin1;
+    private String kin1Number;
     private String nationalId;
     private boolean isDocumentDataSubmitted;
     private boolean isUserImageSubmitted;
     private boolean isDigitalSignatureSubmitted;
+
     //    @Lob
 
 }

@@ -54,6 +54,7 @@ public class KYCService {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         User user = (User) authentication.getPrincipal();
+        String ageFromKYCRequest = calculateAge(kycRequest.getDob());
 
         //        if some of kyc details exists then update only those kyc details which are remaining and are provide by client side
 
@@ -66,6 +67,10 @@ public class KYCService {
                 existingKyc.setDob(kycRequest.getDob());
 
             }
+            if(kycRequest.getPhoneNumber() != null && existingKyc.getUser() != null
+                    && existingKyc.getUser().getPhoneNumber() == null){
+                existingKyc.getUser().setPhoneNumber(kycRequest.getPhoneNumber());
+            }
             if (kycRequest.getAddress() != null && existingKyc.getAddress() == null) {
                 existingKyc.setAddress(kycRequest.getAddress());
             }
@@ -75,6 +80,15 @@ public class KYCService {
             if (kycRequest.getKin() != null && existingKyc.getKin() == null) {
                 existingKyc.setKin(kycRequest.getKin());
             }
+            if (kycRequest.getKinNumber() != null && existingKyc.getKinNumber() == null) {
+                existingKyc.setKinNumber(kycRequest.getKinNumber());
+            }
+            if (kycRequest.getKin1() != null && existingKyc.getKin1() == null) {
+                existingKyc.setKin1(kycRequest.getKin1());
+            }
+            if (kycRequest.getKin1Number() != null && existingKyc.getKin1Number() == null) {
+                existingKyc.setKin1Number(kycRequest.getKin1Number());
+            }
             if (kycRequest.getNationalId() != null && existingKyc.getNationalId() == null) {
                 existingKyc.setNationalId(kycRequest.getNationalId());
             }
@@ -83,8 +97,7 @@ public class KYCService {
             }
 
             if (existingKyc.getAge() == null) {
-                String age = calculateAge(existingKyc.getDob());
-                existingKyc.setAge(age);
+                String age = ageFromKYCRequest;
             }
             if (documentData != null && existingKyc.getDocumentData() == null) {
                 existingKyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
@@ -99,6 +112,8 @@ public class KYCService {
 
 
             System.out.println(calculateAge(kycRequest.getDob()));
+
+            CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
 
 
             kycRepository.save(existingKyc);
@@ -115,6 +130,9 @@ public class KYCService {
                     .nationalId(existingKyc.getNationalId())
                     .age(existingKyc.getAge())
                     .kin(existingKyc.getKin())
+                    .kinNumber(existingKyc.getKinNumber())
+                    .kin1(existingKyc.getKin1())
+                    .kin1Number(existingKyc.getKin1Number())
                     .address(existingKyc.getAddress())
                     .email(existingKyc.getUser().getUsername())
                     .gender(existingKyc.getGender())
@@ -130,9 +148,9 @@ public class KYCService {
         assert userImage != null;
         assert digitalSignature != null;
 
-        String ageFromKYCRequest = calculateAge(kycRequest.getDob());
 
 //            if user is first time filling the kyc form then first build kyc object then save in db
+        user.setPhoneNumber(kycRequest.getPhoneNumber());
         KYC kyc = KYC.builder()
                 .id(user.getId())
                 .user(user)
@@ -142,35 +160,15 @@ public class KYCService {
                 .address(kycRequest.getAddress())
                 .maritalStatus(kycRequest.getMaritalStatus())
                 .kin(kycRequest.getKin())
+                .kinNumber(kycRequest.getKinNumber())
+                .kin1(kycRequest.getKin1())
+                .kin1Number(kycRequest.getKin1Number())
                 .nationalId(kycRequest.getNationalId())
                 .build();
 
 
-        int ageCreditsScore = creditScoreService.calculateAgeCreditScore(Integer.parseInt(ageFromKYCRequest));
-        int genderCreditScore = creditScoreService.calculateGenderCreditScore(kycRequest.getGender());
-        int kinCreditScore = creditScoreService.calculateNextOfKin(kycRequest.getKin());
+        CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
 
-        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 0, 0);
-        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 0, 0);
-        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 0, 0);
-
-
-        int totalCreditScore = ageCreditsScore + genderCreditScore + kinCreditScore;
-        int totalCreditScoreValue = totalCreditScore * 5;
-        float averageCreditScoreValue = totalCreditScoreValue / 3;
-
-        CreditScore creditScore = CreditScore.builder()
-                .user(user)
-                .id(user.getId())
-                .age(ageCreditObject)
-                .gender(genderCreditObject)
-                .nextOfKinType(kinCreditObject)
-                .totalCreditScore(totalCreditScore)
-                .totalCreditScoreValue(totalCreditScoreValue)
-                .averageCreditScoreValue(averageCreditScoreValue)
-                .build();
-
-        creditScoreRepository.save(creditScore);
 
         if (userImage != null) {
             kyc.setUserImage(ImageUtils.compressImage(userImage.getBytes()));
@@ -199,6 +197,9 @@ public class KYCService {
                 .gender(kyc.getGender())
                 .maritalStatus(kyc.getMaritalStatus())
                 .kin(kyc.getKin())
+                .kinNumber(kyc.getKinNumber())
+                .kin1(kyc.getKin1())
+                .kin1Number(kyc.getKin1Number())
                 .nationalId(kyc.getNationalId())
                 .isDocumentDataSubmitted(kyc.getDocumentData() != null)
                 .isUserImageSubmitted(kyc.getUserImage() != null)
@@ -208,6 +209,34 @@ public class KYCService {
         return kycFirstTimeResponse;
 
 
+    }
+
+    private CreditScore getCreditScore(KYCDataResDto kycRequest, User user, String ageFromKYCRequest) {
+        int ageCreditsScore = creditScoreService.calculateAgeCreditScore(Integer.parseInt(ageFromKYCRequest));
+        int genderCreditScore = creditScoreService.calculateGenderCreditScore(kycRequest.getGender());
+        int kinCreditScore = creditScoreService.calculateNextOfKin(kycRequest.getKin());
+
+        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 0, 0);
+        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 0, 0);
+        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 0, 0);
+
+
+        int totalCreditScore = ageCreditsScore + genderCreditScore + kinCreditScore;
+        int totalCreditScoreValue = totalCreditScore * 5;
+        float averageCreditScoreValue = totalCreditScoreValue / 3;
+
+        CreditScore creditScore = CreditScore.builder()
+                .user(user)
+                .id(user.getId())
+                .age(ageCreditObject)
+                .gender(genderCreditObject)
+                .nextOfKinType(kinCreditObject)
+                .totalCreditScore(totalCreditScore)
+                .totalCreditScoreValue(totalCreditScoreValue)
+                .averageCreditScoreValue(averageCreditScoreValue)
+                .build();
+        creditScoreRepository.save(creditScore);
+        return creditScore;
     }
 
     private static byte[] docToByte(byte[] document) {
@@ -261,6 +290,9 @@ public class KYCService {
                     .address(kyc.getAddress())
                     .maritalStatus(kyc.getMaritalStatus())
                     .kin(kyc.getKin())
+                    .kin1Number(kyc.getKinNumber())
+                    .kin1(kyc.getKin1())
+                    .kin1Number(kyc.getKin1Number())
                     .nationalId(kyc.getNationalId())
                     .dob(kyc.getDob())
                     .age(kyc.getAge())
