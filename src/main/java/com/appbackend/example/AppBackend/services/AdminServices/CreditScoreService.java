@@ -2,19 +2,16 @@ package com.appbackend.example.AppBackend.services.AdminServices;
 
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.models.CreditScoreDTO;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.security.Principal;
-import java.security.Security;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +21,9 @@ public class CreditScoreService {
 
     @Autowired
     CreditScoreRepository creditScoreRepository;
+
+    @Value("${credit.offer.per.level}")
+    private String creditOfferPerLevel;
 
     public void calculateCreditScore(Map<String, Map<String, Object>> objectMap) {
 
@@ -233,21 +233,20 @@ public class CreditScoreService {
 
     }
 
-    public int calculateAgeCreditScore(int age) {
-
+    public int ageCreditScore(int age) {
         if (age >= 19 && age <= 40) {
-            return 2;
+            return  2;
         }
         if (age >= 41 && age <= 57) {
-            return 3;
+            return   3;
         }
         if (age >= 58 && age <= 60) {
-            return 4;
+            return  4;
         }
         return 0;
     }
 
-    public int calculateGenderCreditScore(String gender) {
+    public int genderCreditScore(String gender) {
         if (gender.equals("MALE")) {
             return 3;
         }
@@ -259,7 +258,7 @@ public class CreditScoreService {
 
     }
 
-    public int calculateNextOfKin(String kin) {
+    public int nextOfKin(String kin) {
 
         if (kin.equals("SPOUSE")) {
             return 2;
@@ -279,6 +278,32 @@ public class CreditScoreService {
 
     }
 
+
+    public CreditScoreDTO findByUserId(Integer userId) {
+        CreditScore creditScore = creditScoreRepository.findCreditScoreById(userId);
+        long offerPerLevel = Long.parseLong(creditOfferPerLevel);
+
+        double availableOffer = ((double) creditScore.getTotalCreditScore() / 100) * offerPerLevel;
+
+        if (creditScore != null) {
+            CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
+            creditScoreDTO.setTotalCreditScore(creditScore.getTotalCreditScore());
+            creditScoreDTO.setAvailableOffer(Math.round(availableOffer));
+            creditScoreDTO.setTotalExposure(Math.round(offerPerLevel - (float)availableOffer));
+            creditScoreDTO.setOfferPerLevel(offerPerLevel);
+            return creditScoreDTO;
+        } else {
+            return null;
+        }
+
+
+    }
+
+    public double calculateCommonCreditScore(int score , int weight) {
+
+        return (1/score) * weight;
+
+    }
 }
 
 

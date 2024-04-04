@@ -14,8 +14,6 @@ import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,14 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.security.Principal;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.Optional;
 
 @Service
@@ -212,18 +205,24 @@ public class KYCService {
     }
 
     private CreditScore getCreditScore(KYCDataResDto kycRequest, User user, String ageFromKYCRequest) {
-        int ageCreditsScore = creditScoreService.calculateAgeCreditScore(Integer.parseInt(ageFromKYCRequest));
-        int genderCreditScore = creditScoreService.calculateGenderCreditScore(kycRequest.getGender());
-        int kinCreditScore = creditScoreService.calculateNextOfKin(kycRequest.getKin());
+        int ageCreditsScore = creditScoreService.ageCreditScore(Integer.parseInt(ageFromKYCRequest));
+        int genderCreditScore = creditScoreService.genderCreditScore(kycRequest.getGender());
+        int kinCreditScore = creditScoreService.nextOfKin(kycRequest.getKin());
 
-        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 0, 0);
-        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 0, 0);
-        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 0, 0);
+        double ageCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(ageCreditsScore , 1);
+        double genderCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(genderCreditScore , 1);
+        double kinCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(kinCreditScore , 5);
 
 
-        int totalCreditScore = ageCreditsScore + genderCreditScore + kinCreditScore;
-        int totalCreditScoreValue = totalCreditScore * 5;
-        float averageCreditScoreValue = totalCreditScoreValue / 3;
+        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 1, 0);
+        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 1, 0);
+        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 5, 0);
+
+
+
+        int totalCreditScore = (int) Math.round(ageCreditScoreCalculated + genderCreditScoreCalculated + kinCreditScoreCalculated);
+//        int totalCreditScoreValue = totalCreditScore * 5;
+//        float averageCreditScoreValue = totalCreditScoreValue / 3;
 
         CreditScore creditScore = CreditScore.builder()
                 .user(user)
@@ -232,8 +231,8 @@ public class KYCService {
                 .gender(genderCreditObject)
                 .nextOfKinType(kinCreditObject)
                 .totalCreditScore(totalCreditScore)
-                .totalCreditScoreValue(totalCreditScoreValue)
-                .averageCreditScoreValue(averageCreditScoreValue)
+//                .totalCreditScoreValue(totalCreditScoreValue)
+//                .averageCreditScoreValue(averageCreditScoreValue)
                 .build();
         creditScoreRepository.save(creditScore);
         return creditScore;
@@ -290,7 +289,7 @@ public class KYCService {
                     .address(kyc.getAddress())
                     .maritalStatus(kyc.getMaritalStatus())
                     .kin(kyc.getKin())
-                    .kin1Number(kyc.getKinNumber())
+                    .kinNumber(kyc.getKinNumber())
                     .kin1(kyc.getKin1())
                     .kin1Number(kyc.getKin1Number())
                     .nationalId(kyc.getNationalId())

@@ -8,6 +8,7 @@ public interface CreditScoreRepository extends JpaRepository<CreditScore,Integer
 
     CreditScore findCreditScoreById(Integer id);
 
+    CreditScore findByUserId(Integer userId);
 
 
 }
