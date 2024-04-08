@@ -3,8 +3,10 @@ package com.appbackend.example.AppBackend.services.AdminServices;
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.CreditScoreDTO;
+import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -211,7 +213,7 @@ public class CreditScoreService {
 
     }
 
-    public String objectMaker(int score, int weight, float exposure) {
+    public String objectMaker(Object score, int weight, float exposure) {
 
         Map<String, Object> objMap = new HashMap<>();
 
@@ -247,10 +249,10 @@ public class CreditScoreService {
     }
 
     public int genderCreditScore(String gender) {
-        if (gender.equals("MALE")) {
+        if (gender.equalsIgnoreCase("MALE")) {
             return 3;
         }
-        if (gender.equals("FEMALE")) {
+        if (gender.equalsIgnoreCase("FEMALE")) {
             return 2;
         }
 
@@ -260,16 +262,16 @@ public class CreditScoreService {
 
     public int nextOfKin(String kin) {
 
-        if (kin.equals("SPOUSE")) {
+        if (kin.equalsIgnoreCase("SPOUSE")) {
             return 2;
         }
-        if (kin.equals("WORK MATE")) {
+        if (kin.equalsIgnoreCase("WORK MATE")) {
             return 3;
         }
-        if (kin.equals("RELATIVE")) {
+        if (kin.equalsIgnoreCase("RELATIVE")) {
             return 3;
         }
-        if (kin.equals("FRIEND")) {
+        if (kin.equalsIgnoreCase("FRIEND")) {
             return 4;
         }
 
@@ -283,13 +285,13 @@ public class CreditScoreService {
         CreditScore creditScore = creditScoreRepository.findCreditScoreById(userId);
         long offerPerLevel = Long.parseLong(creditOfferPerLevel);
 
-        double availableOffer = ((double) creditScore.getTotalCreditScore() / 100) * offerPerLevel;
+        double availableOffer = ((double) creditScore.getTotalExposure() / 100) * offerPerLevel;
 
         if (creditScore != null) {
             CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
             creditScoreDTO.setTotalCreditScore(creditScore.getTotalCreditScore());
             creditScoreDTO.setAvailableOffer(Math.round(availableOffer));
-            creditScoreDTO.setTotalExposure(Math.round(offerPerLevel - (float)availableOffer));
+            creditScoreDTO.setTotalExposure(creditScore.getTotalExposure());
             creditScoreDTO.setOfferPerLevel(offerPerLevel);
             return creditScoreDTO;
         } else {
@@ -301,7 +303,93 @@ public class CreditScoreService {
 
     public double calculateCommonCreditScore(int score , int weight) {
 
-        return (1/score) * weight;
+        float sc = (float)1/score;
+        return sc * weight;
+
+    }
+
+
+    public double calculateNegativeCreditScore(int score,int weight) {
+        float sc = ((float)score-1)/4;
+        return sc * weight;
+    }
+
+
+    public CreditScoreDTO getCreditScore(CreditScoreDtoDemo creditScoreDtoDemo, Integer userId) {
+
+        CreditScore creditScore  = creditScoreRepository.findByUserId(userId);
+
+//        if (user != null) {
+
+        double blacklistedCreditScore = calculateNegativeCreditScore(creditScoreDtoDemo.getBlacklisted(), -10);
+        double workPlaceDepartmentCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getWorkPlaceDepartment(), 5);
+        double occupationCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getOccupation(), 1);
+        double amountInArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getAmountInArrears(), -10);
+        double daysInArrears = calculateCommonCreditScore(creditScoreDtoDemo.getDaysInArreas(), 10);
+        double rescheduleHistory = calculateCommonCreditScore(creditScoreDtoDemo.getRescheduleHistory(), 1);
+        double priorityClient = calculateCommonCreditScore(creditScoreDtoDemo.getPriorityClient(), 15);
+        double security = calculateCommonCreditScore(creditScoreDtoDemo.getSecurity(), 1);
+        double loanHistoryLoansWithArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60);
+        double loanHistoryLoansWithoutArrears = calculateCommonCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60);
+
+        double ageScore = findOldExposureValue(creditScore.getAge());
+        double genScore = findOldExposureValue(creditScore.getGender());
+        double kinScore = findOldExposureValue(creditScore.getNextOfKinType());
+
+
+        int totalCreditScore = creditScoreDtoDemo.getBlacklisted() + creditScoreDtoDemo.getWorkPlaceDepartment()
+                + creditScoreDtoDemo.getOccupation() + creditScoreDtoDemo.getAmountInArrears() + creditScoreDtoDemo.getDaysInArreas() + creditScoreDtoDemo.getRescheduleHistory() +
+                creditScoreDtoDemo.getPriorityClient() + creditScoreDtoDemo.getSecurity() + creditScoreDtoDemo.getLoanHistoryLoansWithArrears() +
+                creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
+
+        float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
+                                        occupationCreditScore + amountInArrears + daysInArrears +
+                                        rescheduleHistory + priorityClient + security +
+                                        loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+
+        creditScore.setTotalCreditScore(totalCreditScore);
+        creditScore.setTotalExposure(totalExposure);
+
+        creditScoreRepository.save(creditScore);
+
+        CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
+        return creditScoreDTO;
+//        } else {
+//            return null;
+//        }
+    }
+
+
+
+    private double findOldExposureValue(String value){
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            JsonNode root = mapper.readTree(value);
+
+            // Retrieve the value associated with the "score" key
+            double score = root.get("exposure").asDouble();
+            return score;
+        }catch (Exception e){
+            e.printStackTrace();
+            return 0;
+        }
+
+    }
+
+    private int findOldScoreValue(String value){
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            JsonNode root = mapper.readTree(value);
+
+            // Retrieve the value associated with the "score" key
+            int score = root.get("score").asInt();
+            return score;
+        }catch (Exception e){
+            e.printStackTrace();
+            return 0;
+        }
 
     }
 }

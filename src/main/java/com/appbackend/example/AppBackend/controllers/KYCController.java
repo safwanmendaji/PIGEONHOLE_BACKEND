@@ -105,6 +105,7 @@ public class KYCController {
             kycResponse = kycService.saveUserKYC(kycRequest, documentData, userImage, digitalSignature);
         }catch (Exception e){
             ErrorDto errorDto = ErrorDto.builder().code(500).status("ERROR").message("Something went wrong.").build();
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
         return new ResponseEntity<>(kycResponse, HttpStatus.OK);

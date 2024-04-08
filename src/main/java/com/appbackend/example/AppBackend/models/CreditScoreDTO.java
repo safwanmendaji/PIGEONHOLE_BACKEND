@@ -7,7 +7,7 @@ public class CreditScoreDTO {
 
 	private Integer totalCreditScore;
 	private long availableOffer;
-	private long totalExposure;
+	private Float totalExposure;
 	private long offerPerLevel;
 
 }

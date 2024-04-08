@@ -214,13 +214,14 @@ public class KYCService {
         double kinCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(kinCreditScore , 5);
 
 
-        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 1, 0);
-        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 1, 0);
-        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 5, 0);
+        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 1, (float ) ageCreditScoreCalculated);
+        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 1, (float )  genderCreditScoreCalculated);
+        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 5, (float ) kinCreditScoreCalculated);
 
 
 
-        int totalCreditScore = (int) Math.round(ageCreditScoreCalculated + genderCreditScoreCalculated + kinCreditScoreCalculated);
+        float totalExposure = (float) (ageCreditScoreCalculated + genderCreditScoreCalculated + kinCreditScoreCalculated);
+        Integer totalCreditScore = ageCreditsScore + genderCreditScore + kinCreditScore;
 //        int totalCreditScoreValue = totalCreditScore * 5;
 //        float averageCreditScoreValue = totalCreditScoreValue / 3;
 
@@ -230,6 +231,7 @@ public class KYCService {
                 .age(ageCreditObject)
                 .gender(genderCreditObject)
                 .nextOfKinType(kinCreditObject)
+                .totalExposure(totalExposure)
                 .totalCreditScore(totalCreditScore)
 //                .totalCreditScoreValue(totalCreditScoreValue)
 //                .averageCreditScoreValue(averageCreditScoreValue)
