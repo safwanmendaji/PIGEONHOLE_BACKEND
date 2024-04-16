@@ -28,6 +28,10 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
+    public Optional<User>  getUserByPhone(String phone){
+        return userRepository.findByPhoneNumber(phone);
+    }
+
     public Optional<User> getUserById(Integer id){
         return  userRepository.findById(id);
     }

@@ -10,7 +10,7 @@ import com.appbackend.example.AppBackend.models.ForgotPasswordModel.FpOtpVerify;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.RefreshTokenRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
-import com.appbackend.example.AppBackend.services.EmailOtpService;
+import com.appbackend.example.AppBackend.services.OtpService;
 import com.appbackend.example.AppBackend.services.RefreshTokenService;
 import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
@@ -73,7 +73,7 @@ public class AuthController {
     private AuthenticationManager authenticationManager;
 
     @Autowired
-    private EmailOtpService emailOtpService;
+    private OtpService emailOtpService;
 
 
     @Autowired
@@ -87,15 +87,17 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody JwtRequest request) {
         try {
 
+            System.out.println("Name==>> " + request.getUserName());
 
-            UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
+            UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
+            System.out.println("Name==>> " + userDetails.getUsername());
 
-            this.doAuthenticate(request.getEmail(), request.getPassword());
+            this.doAuthenticate(request.getUserName(), request.getPassword());
 
 //        Here saveOtp method  of emailOtpService will return an otp string
 
-            String otp = emailOtpService.saveOtp((User) userDetails);
-            emailOtpService.sendVerificationOtpEmail(userDetails.getUsername(), otp);
+//            String otp = emailOtpService.saveOtp((User) userDetails);
+            emailOtpService.sendVerificationOtp((User) userDetails , request.getUserName());
 
 
 //        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
@@ -116,7 +118,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } catch (UsernameNotFoundException e) {
 
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("USER WITH EMAIL " + request.getEmail() + " IS NOT FOUND ").build();
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("USER WITH EMAIL " + request.getUserName() + " IS NOT FOUND ").build();
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
         }
@@ -203,8 +205,8 @@ public class AuthController {
             User user = userRepository.findByEmail(fpOtpReq.getEmail()).get();
 
 
-            String otp = emailOtpService.saveOtp((User) userDetails);
-            emailOtpService.sendVerificationOtpEmail(userDetails.getUsername(), otp);
+//            String otp = emailOtpService.saveOtp((User) userDetails);
+            emailOtpService.sendVerificationOtp((User) userDetails , fpOtpReq.getEmail());
 
 
             String response = "OTP HAS BEEN SEND TO " + " " + user.getEmail();
@@ -301,6 +303,7 @@ public class AuthController {
             }
 
             Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
+            Optional<User> duplicatePhoneUser = userService.getUserByPhone(registerRequest.getEmail());
 
             Optional<User> duplicateIdUser = userService.getUserById(registerRequest.getId());
 
@@ -310,6 +313,10 @@ public class AuthController {
 
             if (duplicateIdUser.isPresent()) {
                 throw new DuplicateUserException("USER WITH THIS  ID ALREADY EXISTS");
+            }
+
+            if(duplicatePhoneUser.isPresent()){
+                throw new DuplicateUserException("USER WITH THIS MOBILE ALREADY EXISTS");
             }
 
 

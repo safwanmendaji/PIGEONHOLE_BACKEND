@@ -16,6 +16,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
+import java.util.Optional;
+
 @Configuration
 public class Appconfig {
 
@@ -40,9 +42,23 @@ public class Appconfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmail(username).orElseThrow(() ->
-                new UsernameNotFoundException("user not found"));
-    }
+        return username -> {
+            // Check if the username is an email address
+            if (username.contains("@")) {
+                // If it's an email address, search for the user by email
+                UserDetails userDetails = userRepository.findByEmail(username)
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
+                return userDetails;
+            } else {
+                // If it's not an email address, assume it's a mobile number and search for the user by mobile
+                UserDetails userDetails = userRepository.findByPhoneNumber(username)
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with mobile number: " + username));
+                return userDetails;
+            }
+        };
+     }
+
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {

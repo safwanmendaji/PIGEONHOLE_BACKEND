@@ -53,6 +53,7 @@
         @Column(unique = true)
         private String email;
 
+        @Column(unique = true)
         private String phoneNumber;
 
         @Enumerated(EnumType.STRING)
@@ -76,10 +77,17 @@
     //    public Integer getUserId() {
     //        return id;
     //    }
+        public String getEmail() {
+            return email;
+        }
+
+        public String getSPhoneNumber() {
+            return phoneNumber;
+        }
 
         @Override
         public String getUsername() {
-            return email;
+            return email != null ? email : String.valueOf(phoneNumber);
         }
 
         @Override

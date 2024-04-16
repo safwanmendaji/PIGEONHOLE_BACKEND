@@ -12,7 +12,7 @@ import lombok.*;
 
 public class JwtRequest {
 
-    private String email;
+    private String userName;
 
     private String password;
 }
