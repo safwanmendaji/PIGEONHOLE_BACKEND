@@ -1,4 +1,4 @@
-package com.appbackend.example.AppBackend.models.ForgotPasswordModel;
+package com.appbackend.example.AppBackend.models;
 
 import lombok.Getter;
 import lombok.Setter;
