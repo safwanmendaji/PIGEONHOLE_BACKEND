@@ -94,25 +94,11 @@ public class AuthController {
 
             this.doAuthenticate(request.getUserName(), request.getPassword());
 
-//        Here saveOtp method  of emailOtpService will return an otp string
 
-//            String otp = emailOtpService.saveOtp((User) userDetails);
             emailOtpService.sendVerificationOtp((User) userDetails , request.getUserName());
 
 
-//        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
-//
-//
-//        String token = this.jwtHelper.generateToken(userDetails);
-//
-//
-//        JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
 
-
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        Object user =this.authentication.getName();
-
-//        System.out.println(user);
 
             SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS").message("OTP HAS BEEN SEND TO " + authentication.getName()).build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
@@ -128,13 +114,6 @@ public class AuthController {
     @Async
     @PostMapping("/verifyotp")
     public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest, @CurrentSecurityContext SecurityContext context) {
-//            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-//            Principal principal ;
-//
-//            System.out.println(principal.getName());
-//            System.out.println("This is ");
-//            System.out.println(context.getAuthentication().getName());
         try {
             UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
             User user = userRepository.findByEmail(otpRequest.getEmail()).get();
@@ -148,33 +127,6 @@ public class AuthController {
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
 
 
-//            CompletableFuture<String> jwtfuture = CompletableFuture.supplyAsync(() -> {
-//                System.out.println("generating jwt");
-//                return this.jwtHelper.generateToken(userDetails);
-//            });
-//
-//            ResponseEntity<?> responseEntity = jwtfuture.thenApply(jwt -> {
-//                JwtResponse response1 = JwtResponse.builder().jwtToken(jwt)
-//                        .refreshTokenString(refreshToken.getRefreshTokenString())
-//                        .username(userDetails.getUsername())
-//                        .build();
-//
-//                System.out.println("Sending JWT: " + jwt);
-//                return new ResponseEntity<>(response1, HttpStatus.OK);
-//            }).exceptionally(error -> {
-//                System.out.println("Error generating JWT: " + error.getMessage());
-//                return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-//            }).join();
-//
-//            CompletableFuture.runAsync(() -> {
-//
-//                long startTime = System.currentTimeMillis();
-//                long endTime = startTime + 10000; // Delay for 10 second
-//                while (System.currentTimeMillis() < endTime) {
-//                    // Wait for 1 second
-//                }
-//                System.out.println("Hello World!");
-//
 //            });
 
             String token = this.jwtHelper.generateToken(userDetails);

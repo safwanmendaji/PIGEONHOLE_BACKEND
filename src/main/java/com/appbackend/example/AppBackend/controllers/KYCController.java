@@ -1,37 +1,36 @@
 package com.appbackend.example.AppBackend.controllers;
 
 
-import com.appbackend.example.AppBackend.config.AuthController;
-import com.appbackend.example.AppBackend.entities.KYC;
-import com.appbackend.example.AppBackend.entities.User;
-import com.appbackend.example.AppBackend.models.ErrorDto;
-import com.appbackend.example.AppBackend.models.KYCDataResDto;
-//import com.appbackend.example.AppBackend.models.KYCDto;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
-import com.appbackend.example.AppBackend.models.KYCDocData;
-import com.appbackend.example.AppBackend.repositories.KYCRepository;
-import com.appbackend.example.AppBackend.repositories.UserRepository;
-import com.appbackend.example.AppBackend.services.KYCService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jdk.jfr.ContentType;
-import lombok.extern.slf4j.Slf4j;
-import lombok.extern.slf4j.XSlf4j;
-import org.slf4j.LoggerFactory;
+import com.appbackend.example.AppBackend.services.KycCalculationDetailService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.util.Optional;
-import java.util.logging.Logger;
+import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
+import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.models.ErrorDto;
+import com.appbackend.example.AppBackend.models.KYCDataResDto;
+//import com.appbackend.example.AppBackend.models.KYCDto;
+import com.appbackend.example.AppBackend.models.KYCDocData;
+import com.appbackend.example.AppBackend.repositories.KYCRepository;
+import com.appbackend.example.AppBackend.repositories.UserRepository;
+import com.appbackend.example.AppBackend.services.KYCService;
+import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.extern.slf4j.Slf4j;
 
 
 @Controller
@@ -46,6 +45,13 @@ public class KYCController {
     UserRepository userRepository;
     @Autowired
     private KYCService kycService;
+    
+    
+    @Autowired
+    private CreditScoreService creditScoreService;
+
+    @Autowired
+    private KycCalculationDetailService kycCalculationDetailService;
 
 //    @Autowired
 //    private Logger logger = LoggerFactory.getLogger(AuthController.class);
@@ -112,5 +118,13 @@ public class KYCController {
 
 
     }
+
+    @GetMapping("/calculation/info")
+    public Map<String, Object> getAllCreditInfo() {
+        return kycCalculationDetailService.getAllCreditInfoGroupedByWorkplace();
+    }
+    
+    
+    
 
 }

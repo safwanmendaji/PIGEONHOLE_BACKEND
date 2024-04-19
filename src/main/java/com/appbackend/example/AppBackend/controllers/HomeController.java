@@ -30,4 +30,7 @@ public class HomeController {
     public String getLoggedInUser(Principal principal) {
         return principal.getName();
     }
+    
+  
+    
 }

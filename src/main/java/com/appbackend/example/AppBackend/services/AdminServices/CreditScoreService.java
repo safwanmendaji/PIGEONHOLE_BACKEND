@@ -1,28 +1,36 @@
 package com.appbackend.example.AppBackend.services.AdminServices;
 
-import com.appbackend.example.AppBackend.entities.CreditScore;
-import com.appbackend.example.AppBackend.entities.User;
-import com.appbackend.example.AppBackend.models.CreditScoreDTO;
-import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
-import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.appbackend.example.AppBackend.entities.CreditScore;
+import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
+import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.models.CreditScoreDTO;
+import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
+import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
+import com.appbackend.example.AppBackend.repositories.KycCalculationDetailsRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAuthority('ADMIN')")
 public class CreditScoreService {
 
     @Autowired
     CreditScoreRepository creditScoreRepository;
+    
+    
+    @Autowired
+    KycCalculationDetailsRepository kycCalclationdetailsRepository;
 
     @Value("${credit.offer.per.level}")
     private String creditOfferPerLevel;
@@ -392,6 +400,10 @@ public class CreditScoreService {
         }
 
     }
+
+   
+
+    
 }
 
 

@@ -43,6 +43,7 @@
                     .authorizeHttpRequests(auth -> auth
                             .requestMatchers("/home/**").authenticated()
                             .requestMatchers("/auth/**").permitAll()
+                            .requestMatchers("/kycdetails/**").authenticated()
                             .requestMatchers("/KYC/data").authenticated()
                             .requestMatchers("/KYC/docData").authenticated()
                             .requestMatchers("/KYC/submitData").authenticated()
