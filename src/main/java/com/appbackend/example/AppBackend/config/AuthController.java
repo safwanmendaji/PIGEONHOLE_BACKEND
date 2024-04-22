@@ -86,20 +86,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody JwtRequest request) {
         try {
-
-            System.out.println("Name==>> " + request.getUserName());
-
             UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
-            System.out.println("Name==>> " + userDetails.getUsername());
-
             this.doAuthenticate(request.getUserName(), request.getPassword());
-
-
             emailOtpService.sendVerificationOtp((User) userDetails , request.getUserName());
-
-
-
-
             SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS").message("OTP HAS BEEN SEND TO " + authentication.getName()).build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } catch (UsernameNotFoundException e) {
@@ -115,37 +104,46 @@ public class AuthController {
     @PostMapping("/verifyotp")
     public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest, @CurrentSecurityContext SecurityContext context) {
         try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
-            User user = userRepository.findByEmail(otpRequest.getEmail()).get();
+            UserDetails userDetails = null;
+            User user = null;
 
+            if (otpRequest.getEmail().contains("@")) {
+//                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+                user = userRepository.findByEmail(otpRequest.getEmail()).orElseThrow(() ->
+                        new UsernameNotFoundException("User not found for email: " + otpRequest.getEmail()));
+            } else {
+//                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+                user = userRepository.findByPhoneNumber(otpRequest.getEmail()).orElseThrow(() ->
+                        new UsernameNotFoundException("User not found for phone number: " + otpRequest.getEmail()));
+            }
 
-            emailOtpService.verifyOtp(otpRequest.otp, user);
-
-
-            System.out.println(emailOtpService.verifyOtp(otpRequest.otp, user));
+            emailOtpService.verifyOtp(otpRequest.getOtp(), user);
 
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
+            String token = jwtHelper.generateToken(userDetails);
 
-
-//            });
-
-            String token = this.jwtHelper.generateToken(userDetails);
-
-
-            JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
-
+            JwtResponse response = JwtResponse.builder()
+                    .jwtToken(token)
+                    .refreshTokenString(refreshToken.getRefreshTokenString())
+                    .username(userDetails.getUsername())
+                    .build();
 
             return new ResponseEntity<>(response, HttpStatus.OK);
-//            return responseEntity;
-
-
-//            return  new ResponseEntity<>("You are successfully logged in",HttpStatus.OK);
+        } catch (UsernameNotFoundException e) {
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.NOT_FOUND.value())
+                    .status("ERROR")
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
         } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.BAD_REQUEST.value())
+                    .status("ERROR")
+                    .message(e.getMessage())
+                    .build();
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
         }
-
-
     }
 
 

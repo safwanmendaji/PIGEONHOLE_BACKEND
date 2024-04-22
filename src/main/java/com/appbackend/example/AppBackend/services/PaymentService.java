@@ -2,7 +2,10 @@ package com.appbackend.example.AppBackend.services;
 
 
 import com.appbackend.example.AppBackend.models.PaymentDto;
+import org.springframework.http.ResponseEntity;
+
+import java.util.Map;
 
 public interface PaymentService {
-	String payment(PaymentDto paymentDto);
+	ResponseEntity<?> payment(PaymentDto paymentDto);
 }

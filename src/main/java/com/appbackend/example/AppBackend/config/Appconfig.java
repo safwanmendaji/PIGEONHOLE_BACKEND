@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.Optional;
 
@@ -69,6 +70,11 @@ public class Appconfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration builder) throws  Exception{
         return  builder.getAuthenticationManager();
+    }
+
+    @Bean
+    public RestTemplate restTemplate(){
+        return new RestTemplate();
     }
 }
 
