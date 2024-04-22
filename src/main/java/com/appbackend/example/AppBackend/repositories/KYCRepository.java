@@ -15,6 +15,8 @@ public interface KYCRepository extends JpaRepository<KYC, Integer> {
 
     KYC findKYCById(Integer id);
 
+	Optional<KYC> findByUserId(int id);
+
 
 
 }

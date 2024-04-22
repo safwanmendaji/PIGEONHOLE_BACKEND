@@ -29,26 +29,20 @@ public class KycCalculationDetailsServiceImpl implements KycCalculationDetailSer
 	@Override
 	public Map<String, Object> getAllCreditInfoGroupedByWorkplace() {
 	    List<KycCalculationDetails> allDetails = kycCalculationDetailsRepository.findAll();
-	    
 	    List<LoanEligibility> allLoanEligibility = loanEligibilityRepository.findAll();
 	    
 	    Map<String, List<KycCalculationDetails>> groupedByWorkplace = allDetails.stream()
 	            .collect(Collectors.groupingBy(KycCalculationDetails::getWorkPlaceName));
 
-	    Map<String, List<Object>> combinedGroupedByWorkplace = new HashMap<>();
+	    Map<String, Object> resultMap = new HashMap<>();
 
-	   
+	    resultMap.put("KycCalculationDetails", groupedByWorkplace);
+	    
+	    resultMap.put("LoanEligibility", allLoanEligibility);
 
-	   
-
-	        // Add LoanEligibility objects to the inner map
-	        Map<String, Object> innerMap = new HashMap<>();
-	        innerMap.put("KycCalculationDetails", groupedByWorkplace);
-	        innerMap.put("LoanEligibility", allLoanEligibility);
-	        
-
-	    return innerMap;
+	    return resultMap;
 	}
+
 
 
 }

@@ -12,6 +12,7 @@ import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
+import com.appbackend.example.AppBackend.util.PIGEONResponse;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -345,5 +346,12 @@ public class KYCService {
 
         return String.valueOf(age);
     }
+
+	public PIGEONResponse updateKYC(  int id) {
+		
+	
+		
+		return null;
+	}
 
 }

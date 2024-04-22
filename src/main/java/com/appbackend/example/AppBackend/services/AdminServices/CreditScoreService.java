@@ -3,6 +3,7 @@ package com.appbackend.example.AppBackend.services.AdminServices;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -198,16 +199,6 @@ public class CreditScoreService {
         existingcreditScore.setTotalWeight(totalWeight);
 
 
-//        CreditScore creditScore = CreditScore.builder()
-//                .user(user)
-//                .id(user.getId())
-//                .age(existingcreditScore.getAge())
-//                .blacklisted(String.valueOf(blacklistedObj))
-//                .workPlaceDeartment(String.valueOf(departmentObj))
-//                .salaryScale(String.valueOf(salaryScaleObj))
-//                .priorityClient(String.valueOf(priorityClientObj))
-//                .security(String.valueOf(securityObj))
-//                .build();
 
         System.out.println(blacklistedObj);
         System.out.println(departmentObj);
@@ -324,48 +315,48 @@ public class CreditScoreService {
 
 
     public CreditScoreDTO getCreditScore(CreditScoreDtoDemo creditScoreDtoDemo, Integer userId) {
+        Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
 
-        CreditScore creditScore  = creditScoreRepository.findByUserId(userId);
+        if (optionalCreditScore.isPresent()) {
+            CreditScore creditScore = optionalCreditScore.get();
 
-//        if (user != null) {
+            double blacklistedCreditScore = calculateNegativeCreditScore(creditScoreDtoDemo.getBlacklisted(), -10);
+            double workPlaceDepartmentCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getWorkPlaceDepartment(), 5);
+            double occupationCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getOccupation(), 1);
+            double amountInArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getAmountInArrears(), -10);
+            double daysInArrears = calculateCommonCreditScore(creditScoreDtoDemo.getDaysInArreas(), 10);
+            double rescheduleHistory = calculateCommonCreditScore(creditScoreDtoDemo.getRescheduleHistory(), 1);
+            double priorityClient = calculateCommonCreditScore(creditScoreDtoDemo.getPriorityClient(), 15);
+            double security = calculateCommonCreditScore(creditScoreDtoDemo.getSecurity(), 1);
+            double loanHistoryLoansWithArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60);
+            double loanHistoryLoansWithoutArrears = calculateCommonCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60);
 
-        double blacklistedCreditScore = calculateNegativeCreditScore(creditScoreDtoDemo.getBlacklisted(), -10);
-        double workPlaceDepartmentCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getWorkPlaceDepartment(), 5);
-        double occupationCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getOccupation(), 1);
-        double amountInArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getAmountInArrears(), -10);
-        double daysInArrears = calculateCommonCreditScore(creditScoreDtoDemo.getDaysInArreas(), 10);
-        double rescheduleHistory = calculateCommonCreditScore(creditScoreDtoDemo.getRescheduleHistory(), 1);
-        double priorityClient = calculateCommonCreditScore(creditScoreDtoDemo.getPriorityClient(), 15);
-        double security = calculateCommonCreditScore(creditScoreDtoDemo.getSecurity(), 1);
-        double loanHistoryLoansWithArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60);
-        double loanHistoryLoansWithoutArrears = calculateCommonCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60);
+            double ageScore = findOldExposureValue(creditScore.getAge());
+            double genScore = findOldExposureValue(creditScore.getGender());
+            double kinScore = findOldExposureValue(creditScore.getNextOfKinType());
 
-        double ageScore = findOldExposureValue(creditScore.getAge());
-        double genScore = findOldExposureValue(creditScore.getGender());
-        double kinScore = findOldExposureValue(creditScore.getNextOfKinType());
+            int totalCreditScore = creditScoreDtoDemo.getBlacklisted() + creditScoreDtoDemo.getWorkPlaceDepartment()
+                    + creditScoreDtoDemo.getOccupation() + creditScoreDtoDemo.getAmountInArrears() + creditScoreDtoDemo.getDaysInArreas() + creditScoreDtoDemo.getRescheduleHistory() +
+                    creditScoreDtoDemo.getPriorityClient() + creditScoreDtoDemo.getSecurity() + creditScoreDtoDemo.getLoanHistoryLoansWithArrears() +
+                    creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
 
+            float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
+                                            occupationCreditScore + amountInArrears + daysInArrears +
+                                            rescheduleHistory + priorityClient + security +
+                                            loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
 
-        int totalCreditScore = creditScoreDtoDemo.getBlacklisted() + creditScoreDtoDemo.getWorkPlaceDepartment()
-                + creditScoreDtoDemo.getOccupation() + creditScoreDtoDemo.getAmountInArrears() + creditScoreDtoDemo.getDaysInArreas() + creditScoreDtoDemo.getRescheduleHistory() +
-                creditScoreDtoDemo.getPriorityClient() + creditScoreDtoDemo.getSecurity() + creditScoreDtoDemo.getLoanHistoryLoansWithArrears() +
-                creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
+            creditScore.setTotalCreditScore(totalCreditScore);
+            creditScore.setTotalExposure(totalExposure);
 
-        float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
-                                        occupationCreditScore + amountInArrears + daysInArrears +
-                                        rescheduleHistory + priorityClient + security +
-                                        loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+            creditScoreRepository.save(creditScore);
 
-        creditScore.setTotalCreditScore(totalCreditScore);
-        creditScore.setTotalExposure(totalExposure);
-
-        creditScoreRepository.save(creditScore);
-
-        CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
-        return creditScoreDTO;
-//        } else {
-//            return null;
-//        }
+            CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
+            return creditScoreDTO;
+        } else {
+            return null;
+        }
     }
+
 
 
 
