@@ -41,12 +41,7 @@
 
             http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/home/**").authenticated()
                             .requestMatchers("/auth/**").permitAll()
-                            .requestMatchers("/kycdetails/**").authenticated()
-                            .requestMatchers("/KYC/data").authenticated()
-                            .requestMatchers("/KYC/docData").authenticated()
-                            .requestMatchers("/KYC/submitData").authenticated()
                             .requestMatchers("/dashboard/**").hasAuthority("ADMIN")
                             .anyRequest().authenticated())
                     .exceptionHandling(ex -> ex.authenticationEntryPoint(point))
