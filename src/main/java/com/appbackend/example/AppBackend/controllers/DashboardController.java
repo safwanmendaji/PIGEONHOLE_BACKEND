@@ -7,12 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.UserKYCDto;
@@ -21,7 +16,6 @@ import com.appbackend.example.AppBackend.models.PaginationModel.SortField;
 import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.services.AdminServices.UserDataService;
-import com.appbackend.example.AppBackend.util.PIGEONResponse;
 
 @RestController
 @PreAuthorize("hasAuthority('ADMIN')")
@@ -56,12 +50,12 @@ public class DashboardController {
 	}
 
 	@GetMapping("/users")
-	public PIGEONResponse getAllUsers() {
+	public ResponseEntity<?> getAllUsers() {
 		return dashboardService.getAllUsers();
 	}
 
 	@GetMapping("/user/{id}")
-	public PIGEONResponse getAllUserById(@PathVariable int id) {
+	public ResponseEntity<?> getAllUserById(@PathVariable int id) {
 		return dashboardService.getUserAndKYCByUserId(id);
 	}
 
@@ -72,9 +66,9 @@ public class DashboardController {
 
 	}
 
-	@PostMapping("/kyc/update/{id}")
-	public PIGEONResponse updateKyc(@RequestBody UserKYCDto userKycDto ,@PathVariable int id) {
-		return dashboardService.updateUserKyc(userKycDto,id);
+	@PutMapping("/kyc/update")
+	public ResponseEntity<?> updateKyc(@RequestBody UserKYCDto userKycDto) {
+		return dashboardService.updateUserKyc(userKycDto);
 	}
 
 

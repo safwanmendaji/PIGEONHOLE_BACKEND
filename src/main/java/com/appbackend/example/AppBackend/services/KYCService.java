@@ -12,9 +12,9 @@ import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
-import com.appbackend.example.AppBackend.util.PIGEONResponse;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -215,9 +215,9 @@ public class KYCService {
         double kinCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(kinCreditScore , 5);
 
 
-        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 1, (float ) ageCreditScoreCalculated);
-        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 1, (float )  genderCreditScoreCalculated);
-        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 5, (float ) kinCreditScoreCalculated);
+        String ageCreditObject = creditScoreService.makeCreditScoreOjb(ageCreditsScore, 1, (float ) ageCreditScoreCalculated);
+        String genderCreditObject = creditScoreService.makeCreditScoreOjb(genderCreditScore, 1, (float )  genderCreditScoreCalculated);
+        String kinCreditObject = creditScoreService.makeCreditScoreOjb(kinCreditScore, 5, (float ) kinCreditScoreCalculated);
 
 
 
@@ -347,7 +347,7 @@ public class KYCService {
         return String.valueOf(age);
     }
 
-	public PIGEONResponse updateKYC(  int id) {
+	public ResponseEntity<?> updateKYC(int id) {
 		
 	
 		

@@ -130,7 +130,7 @@ public class KYCController {
     
     
     @PostMapping("/update/{id}")
-    public PIGEONResponse updateKYC(@PathVariable int id) {
+    public ResponseEntity<?> updateKYC(@PathVariable int id) {
     	return kycService.updateKYC(id);
     }
 

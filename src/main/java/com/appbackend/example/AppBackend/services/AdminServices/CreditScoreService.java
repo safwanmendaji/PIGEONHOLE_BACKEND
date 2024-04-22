@@ -1,18 +1,20 @@
 package com.appbackend.example.AppBackend.services.AdminServices;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.appbackend.example.AppBackend.models.ErrorDto;
+import com.appbackend.example.AppBackend.models.UserKYCDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.appbackend.example.AppBackend.entities.CreditScore;
-import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.CreditScoreDTO;
 import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
@@ -180,11 +182,11 @@ public class CreditScoreService {
         System.out.println(" available offer " + availableOffer);
 
 
-        String blacklistedObj = objectMaker(blacklistedScore, blacklistedWeight, blacklistedExposure);
-        String departmentObj = objectMaker(departmentScore, departmentWeight, departmentExposure);
-        String salaryScaleObj = objectMaker(salaryScaleScore, salaryScaleWeight, salaryScaleExposure);
-        String priorityClientObj = objectMaker(priorityClientScore, priorityClientWeight, priorityClientExposure);
-        String securityObj = objectMaker(securityScore, securityWeight, securityClientExposure);
+        String blacklistedObj = makeCreditScoreOjb(blacklistedScore, blacklistedWeight, blacklistedExposure);
+        String departmentObj = makeCreditScoreOjb(departmentScore, departmentWeight, departmentExposure);
+        String salaryScaleObj = makeCreditScoreOjb(salaryScaleScore, salaryScaleWeight, salaryScaleExposure);
+        String priorityClientObj = makeCreditScoreOjb(priorityClientScore, priorityClientWeight, priorityClientExposure);
+        String securityObj = makeCreditScoreOjb(securityScore, securityWeight, securityClientExposure);
 
 
         existingcreditScore.setAverageCreditScoreValue(averageCreditScoreValue);
@@ -212,7 +214,7 @@ public class CreditScoreService {
 
     }
 
-    public String objectMaker(Object score, int weight, float exposure) {
+    public static String makeCreditScoreOjb(Object score, int weight, Object exposure) {
 
         Map<String, Object> objMap = new HashMap<>();
 
@@ -314,22 +316,42 @@ public class CreditScoreService {
     }
 
 
-    public CreditScoreDTO getCreditScore(CreditScoreDtoDemo creditScoreDtoDemo, Integer userId) {
-        Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
+    public CreditScoreDTO getCreditScore(UserKYCDto creditScoreDtoDemo) {
+    try {
+        Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(creditScoreDtoDemo.getUserId());
 
         if (optionalCreditScore.isPresent()) {
             CreditScore creditScore = optionalCreditScore.get();
 
             double blacklistedCreditScore = calculateNegativeCreditScore(creditScoreDtoDemo.getBlacklisted(), -10);
+            String blacklistedCreditScoreString = makeCreditScoreOjb(creditScoreDtoDemo.getBlacklisted(), -10, blacklistedCreditScore);
+
             double workPlaceDepartmentCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getWorkPlaceDepartment(), 5);
+            String workPlaceDepartmentCreditScoreString = makeCreditScoreOjb(creditScoreDtoDemo.getWorkPlaceDepartment(), 5, workPlaceDepartmentCreditScore);
+
             double occupationCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getOccupation(), 1);
+            String occupationCreditScoreString = makeCreditScoreOjb(creditScoreDtoDemo.getOccupation(), 1, occupationCreditScore);
+
             double amountInArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getAmountInArrears(), -10);
+            String amountInArrearsString = makeCreditScoreOjb(creditScoreDtoDemo.getAmountInArrears(), -10, amountInArrears);
+
             double daysInArrears = calculateCommonCreditScore(creditScoreDtoDemo.getDaysInArreas(), 10);
+            String daysInArrearsString = makeCreditScoreOjb(creditScoreDtoDemo.getDaysInArreas(), 10, daysInArrears);
+
             double rescheduleHistory = calculateCommonCreditScore(creditScoreDtoDemo.getRescheduleHistory(), 1);
+            String rescheduleHistoryString = makeCreditScoreOjb(creditScoreDtoDemo.getRescheduleHistory(), 1, rescheduleHistory);
+
             double priorityClient = calculateCommonCreditScore(creditScoreDtoDemo.getPriorityClient(), 15);
+            String priorityClientString = makeCreditScoreOjb(creditScoreDtoDemo.getPriorityClient(), 15, priorityClient);
+
             double security = calculateCommonCreditScore(creditScoreDtoDemo.getSecurity(), 1);
+            String securityString = makeCreditScoreOjb(creditScoreDtoDemo.getSecurity(), 1, security);
+
             double loanHistoryLoansWithArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60);
+            String loanHistoryLoansWithArrearsString = makeCreditScoreOjb(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60, loanHistoryLoansWithArrears);
+
             double loanHistoryLoansWithoutArrears = calculateCommonCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60);
+            String loanHistoryLoansWithoutArrearsString = makeCreditScoreOjb(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60, loanHistoryLoansWithoutArrears);
 
             double ageScore = findOldExposureValue(creditScore.getAge());
             double genScore = findOldExposureValue(creditScore.getGender());
@@ -341,12 +363,24 @@ public class CreditScoreService {
                     creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
 
             float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
-                                            occupationCreditScore + amountInArrears + daysInArrears +
-                                            rescheduleHistory + priorityClient + security +
-                                            loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+                    occupationCreditScore + amountInArrears + daysInArrears +
+                    rescheduleHistory + priorityClient + security +
+                    loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+
 
             creditScore.setTotalCreditScore(totalCreditScore);
             creditScore.setTotalExposure(totalExposure);
+
+            creditScore.setBlacklisted(blacklistedCreditScoreString);
+            creditScore.setSecurity(securityString);
+            creditScore.setAmountInArrears(amountInArrearsString);
+            creditScore.setLoanHistoryLoansWithArrears(loanHistoryLoansWithArrearsString);
+            creditScore.setLoanHistoryLoansWithOutArrears(loanHistoryLoansWithoutArrearsString);
+            creditScore.setOccupation(occupationCreditScoreString);
+            creditScore.setWorkPlaceDepartment(workPlaceDepartmentCreditScoreString);
+            creditScore.setDaysInArrears(daysInArrearsString);
+            creditScore.setRescheduledHistory(rescheduleHistoryString);
+            creditScore.setPriorityClient(priorityClientString);
 
             creditScoreRepository.save(creditScore);
 
@@ -355,6 +389,12 @@ public class CreditScoreService {
         } else {
             return null;
         }
+    }catch (Exception e){
+        e.printStackTrace();
+         new Exception("SOME THING WENT WRONG IN UPDATE CREDIT SCORE.");
+
+    }
+    return null;
     }
 
 
@@ -376,7 +416,7 @@ public class CreditScoreService {
 
     }
 
-    private int findOldScoreValue(String value){
+    public static int findOldScoreValue(String value){
         try {
             ObjectMapper mapper = new ObjectMapper();
 

@@ -57,7 +57,7 @@
         private String phoneNumber;
         
         @Column(columnDefinition = "boolean default false",name="is_approved")
-        private Boolean isApproved;
+        private Boolean isApproved = false;
 
 
         @Enumerated(EnumType.STRING)
@@ -67,6 +67,7 @@
     //    public void setId(Integer id) {
     //        this.id = id;
     //    }
+
 
         @Override
         public Collection<? extends GrantedAuthority> getAuthorities() {

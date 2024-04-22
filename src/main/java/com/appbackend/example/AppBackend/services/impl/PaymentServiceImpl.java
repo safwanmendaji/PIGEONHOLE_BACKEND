@@ -118,7 +118,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         try{
             disbursementsHistory.setAmount(paymentDto.getAmount());
-            disbursementsHistory.setUser(user);
+            disbursementsHistory.setUserId(user.getId());
             disbursementsHistory.setCreatedOn(LocalDateTime.now());
             disbursementsHistory.setPaymentStatus(disbursementsStatus.INITIALIZE);
             disbursementsHistory.setDisbursementsType(paymentDto.getDisbursementsType());

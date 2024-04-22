@@ -21,8 +21,7 @@ public class DisbursementsHistory {
     @Column(name="id")
     private Integer id;
 
-    @OneToMany
-    private User user;
+    private Integer userId;
 
     private DisbursementsType disbursementsType;
     private float amount;

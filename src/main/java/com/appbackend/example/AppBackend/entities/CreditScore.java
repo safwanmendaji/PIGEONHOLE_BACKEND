@@ -1,5 +1,6 @@
 package com.appbackend.example.AppBackend.entities;
 
+import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 
 
@@ -26,11 +27,7 @@ public class CreditScore implements Serializable {
     @OneToOne
     private  User user;
 
-    private String blacklisted;
-
-
     private String workPlaceDeartment;
-
 
     private String salaryScale;
 
@@ -41,10 +38,10 @@ public class CreditScore implements Serializable {
     private String gender;
 //
 //
-//    private String daysInArrears;
+    private String daysInArrears;
 //
 //
-//    private String rescheduledHistory;
+    private String rescheduledHistory;
 
 
     private String priorityClient;
@@ -52,16 +49,6 @@ public class CreditScore implements Serializable {
 //
     private String nextOfKinType;
 
-
-    private String security;
-
-//
-//    private String loansWithArrears;
-
-//
-//    private String loansWithoutArrears;
-
-//
 //    private String offerPerLevel;
 
     private Integer totalCreditScore;
@@ -73,6 +60,14 @@ public class CreditScore implements Serializable {
 
 
 
+    private String workPlaceDepartment;
+    private String occupation;
+    private String amountInArrears;
+    private String daysInArreas;
+    private String security;
+    private String loanHistoryLoansWithArrears;
+    private String loanHistoryLoansWithOutArrears;
+    private String blacklisted;
 
 
 

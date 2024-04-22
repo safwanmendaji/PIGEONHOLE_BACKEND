@@ -108,11 +108,11 @@ public class AuthController {
             User user = null;
 
             if (otpRequest.getEmail().contains("@")) {
-//                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
                 user = userRepository.findByEmail(otpRequest.getEmail()).orElseThrow(() ->
                         new UsernameNotFoundException("User not found for email: " + otpRequest.getEmail()));
             } else {
-//                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+                userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
                 user = userRepository.findByPhoneNumber(otpRequest.getEmail()).orElseThrow(() ->
                         new UsernameNotFoundException("User not found for phone number: " + otpRequest.getEmail()));
             }

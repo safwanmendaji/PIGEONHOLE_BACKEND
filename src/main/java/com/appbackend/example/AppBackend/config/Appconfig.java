@@ -57,3 +57,4 @@ public class Appconfig {
 		return new RestTemplate();
 	}
 
+}
