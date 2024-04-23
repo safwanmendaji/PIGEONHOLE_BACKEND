@@ -1,13 +1,9 @@
 package com.appbackend.example.AppBackend.services.impl;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import com.appbackend.example.AppBackend.models.SuccessDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.KYC;
-import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
 import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.models.UserDto;
 import com.appbackend.example.AppBackend.models.UserKYCDto;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
@@ -25,8 +21,8 @@ import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.KycCalculationDetailsRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.DashBoardService;
+import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
-
 
 @Service
 public class DashBoardServiceImpl implements DashBoardService {
@@ -46,28 +42,29 @@ public class DashBoardServiceImpl implements DashBoardService {
 	@Autowired
 	private KycCalculationDetailsRepository kycCalculationDetailsRepository;
 
+	@Autowired
+	private UserService userService;
+
 	@Override
 	public ResponseEntity<?> getAllUsers() {
-	    List<User> users = userRepository.findAll();
-	    List<UserDto> userDtos = users.stream()
-	            .map(user -> {
-	                int userId = user.getId();
-	                String firstName = user.getFirstName();
-	                String mobile = user.getPhoneNumber();
-	                String email = user.getEmail();
-	                Boolean isApproved = user.getIsApproved();
+		List<User> users = userRepository.findAll();
+		List<UserDto> userDtos = users.stream().map(user -> {
+			int userId = user.getId();
+			String firstName = user.getFirstName();
+			String mobile = user.getPhoneNumber();
+			String email = user.getEmail();
+			Boolean isApproved = user.getIsApproved();
 
-	                Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
-	                int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
+			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
+			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
 
-	                return new UserDto(userId , firstName, mobile, email, score, isApproved == null ? false : isApproved);
-	            })
-	            .collect(Collectors.toList());
-		SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success").message("DATA GET SUCCESSFULLY.").data(userDtos).build();
+			return new UserDto(userId, firstName, mobile, email, score, isApproved == null ? false : isApproved);
+		}).collect(Collectors.toList());
+		SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
+				.message("DATA GET SUCCESSFULLY.").data(userDtos).build();
 
 		return ResponseEntity.status(HttpStatus.OK).body(successDto);
 	}
-
 
 	@Override
 	public ResponseEntity<?> getUserAndKYCByUserId(int userId) {
@@ -100,7 +97,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 				byte[] digitalSignature = kyc.getDigitalSignature();
 
 				Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
-	            int score = 0;
+				int score = 0;
 				int reschedule = 0;
 				int occupation = 0;
 				int departments = 0;
@@ -110,36 +107,56 @@ public class DashBoardServiceImpl implements DashBoardService {
 				int arrearsamountdefault = 0;
 				int daysinarrearspaymenthistory = 0;
 				int blackList = 0;
-	            if (optionalCreditScore.isPresent()) {
+				if (optionalCreditScore.isPresent()) {
 					CreditScore creditScore = optionalCreditScore.get();
-	                score = creditScore.getTotalCreditScore();
-					reschedule = creditScore.getRescheduledHistory() != null ? creditScoreService.findOldScoreValue(creditScore.getRescheduledHistory()) : 0;
-	        		occupation =  creditScore.getOccupation() != null ? creditScoreService.findOldScoreValue(creditScore.getOccupation()) : 0;
-					departments = creditScore.getWorkPlaceDepartment() != null ? creditScoreService.findOldScoreValue(creditScore.getWorkPlaceDepartment()) : 0;
-					security = creditScore.getSecurity() != null ? creditScoreService.findOldScoreValue(creditScore.getSecurity()) : 0;
-					loanhistorycompletedloanswitharrearsnegative = creditScore.getLoanHistoryLoansWithArrears() != null ? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithArrears()) : 0;
-					loanhistorycompletedloanswithoutarrears = creditScore.getLoanHistoryLoansWithOutArrears() != null ? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithOutArrears()) : 0;
-					arrearsamountdefault = creditScore.getAmountInArrears() != null ? creditScoreService.findOldScoreValue(creditScore.getAmountInArrears()) : 0;
-					daysinarrearspaymenthistory = creditScore.getDaysInArrears() != null ? creditScoreService.findOldScoreValue(creditScore.getDaysInArrears()) : 0;
-					blackList = creditScore.getBlacklisted()!= null ? creditScoreService.findOldScoreValue(creditScore.getBlacklisted()) : 0;
+					score = creditScore.getTotalCreditScore();
+					reschedule = creditScore.getRescheduledHistory() != null
+							? creditScoreService.findOldScoreValue(creditScore.getRescheduledHistory())
+							: 0;
+					occupation = creditScore.getOccupation() != null
+							? creditScoreService.findOldScoreValue(creditScore.getOccupation())
+							: 0;
+					departments = creditScore.getWorkPlaceDepartment() != null
+							? creditScoreService.findOldScoreValue(creditScore.getWorkPlaceDepartment())
+							: 0;
+					security = creditScore.getSecurity() != null
+							? creditScoreService.findOldScoreValue(creditScore.getSecurity())
+							: 0;
+					loanhistorycompletedloanswitharrearsnegative = creditScore.getLoanHistoryLoansWithArrears() != null
+							? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithArrears())
+							: 0;
+					loanhistorycompletedloanswithoutarrears = creditScore.getLoanHistoryLoansWithOutArrears() != null
+							? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithOutArrears())
+							: 0;
+					arrearsamountdefault = creditScore.getAmountInArrears() != null
+							? creditScoreService.findOldScoreValue(creditScore.getAmountInArrears())
+							: 0;
+					daysinarrearspaymenthistory = creditScore.getDaysInArrears() != null
+							? creditScoreService.findOldScoreValue(creditScore.getDaysInArrears())
+							: 0;
+					blackList = creditScore.getBlacklisted() != null
+							? creditScoreService.findOldScoreValue(creditScore.getBlacklisted())
+							: 0;
 				}
 
-				UserKYCDto userKYCDto = new UserKYCDto(
-						firstName, mobile, email, score, isApproved, dob, address, maritalStatus, kin, kinNumber, kin1, kin1Number,
-						nationalId, gender, age, documentData, userImage, digitalSignature, reschedule, occupation, departments, security,
-						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears, arrearsamountdefault,
-						daysinarrearspaymenthistory , blackList
-				);
+				UserKYCDto userKYCDto = new UserKYCDto(firstName, mobile, email, score, isApproved, dob, address,
+						maritalStatus, kin, kinNumber, kin1, kin1Number, nationalId, gender, age, documentData,
+						userImage, digitalSignature, reschedule, occupation, departments, security,
+						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears,
+						arrearsamountdefault, daysinarrearspaymenthistory, blackList);
 				userKYCDto.setUserId(userId);
 
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success").message("SUCCESS.").data(userKYCDto).build();
+				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
+						.message("SUCCESS.").data(userKYCDto).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
 			} else {
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error").message("KYC not found for the user").build();
+				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
+						.message("KYC not found for the user").build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
 			}
 		} else {
-			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error").message("USER NOT FOUND").build();
+			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
+					.message("USER NOT FOUND").build();
 			return ResponseEntity.status(HttpStatus.OK).body(successDto);
 		}
 	}
@@ -168,17 +185,59 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 				creditScoreService.getCreditScore(userKycDto);
 
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success").message("KYC UPDATED SUCCESSFULLY.").build();
+				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success")
+						.message("KYC UPDATED SUCCESSFULLY.").build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
 			} else {
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error").message("KYC RECORDS NOT FOUND FOR ID : . "+ userKycDto.getUserId()).build();
+				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
+						.message("KYC RECORDS NOT FOUND FOR ID : . " + userKycDto.getUserId()).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("Error").message("SOME THING WENT WRONG. "+ e.getMessage()).build();
+			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("Error")
+					.message("SOME THING WENT WRONG. " + e.getMessage()).build();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(successDto);
 		}
 	}
+
+	@Override
+	public ResponseEntity<?> enableDisEnabledUser(int id) {
+	    Optional<User> optionalUser = userService.getUserById(id);
+
+	    if (!optionalUser.isPresent()) {
+	        SuccessDto errorResponse = SuccessDto.builder()
+	                .code(HttpStatus.NOT_FOUND.value())
+	                .status("Error")
+	                .message("User not found")
+	                .build();
+	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+	    }
+
+	    User user = optionalUser.get();
+	    Boolean isApproved = user.getIsApproved();
+
+	    if (isApproved == null) {
+	        SuccessDto errorResponse = SuccessDto.builder()
+	                .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+	                .status("Error")
+	                .message("Approval status is null for user with ID " + id)
+	                .build();
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+	    }
+
+	    user.setIsApproved(!isApproved);
+
+	    userRepository.save(user);
+
+	    String status = isApproved ? "disabled" : "enabled";
+	    SuccessDto successResponse = SuccessDto.builder()
+	            .code(HttpStatus.OK.value())
+	            .status("Success")
+	            .message("User with ID " + id + " has been " + status)
+	            .build();
+	    return ResponseEntity.status(HttpStatus.OK).body(successResponse);
+	}
+
 
 }

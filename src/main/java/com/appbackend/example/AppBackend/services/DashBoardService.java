@@ -17,4 +17,11 @@ public interface DashBoardService {
 	ResponseEntity<?> updateUserKyc(UserKYCDto userKycDto);
 
 
+
+
+
+
+	ResponseEntity<?> enableDisEnabledUser(int id);
+
+
 }

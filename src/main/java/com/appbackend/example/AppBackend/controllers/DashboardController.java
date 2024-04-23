@@ -71,5 +71,10 @@ public class DashboardController {
 		return dashboardService.updateUserKyc(userKycDto);
 	}
 
+	@PutMapping("/users/enable-disable/{id}")
+	public ResponseEntity<?> enableOrDisableUser(@PathVariable int id) {
+		return dashboardService.enableDisEnabledUser(id);
+
+	}
 
 }
