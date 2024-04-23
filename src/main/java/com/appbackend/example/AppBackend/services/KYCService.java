@@ -303,6 +303,8 @@ public class KYCService {
                     .firstName(kyc.getUser().getFirstName())
                     .lastName(kyc.getUser().getLastName())
                     .workId(kyc.getId())
+                    .userId(kyc.getUser().getId())
+
                     .isUserImageSubmitted(kyc.getUserImage() != null)
                     .isDocumentDataSubmitted(kyc.getDocumentData() != null)
                     .isDigitalSignatureSubmitted(kyc.getDigitalSignature() != null)
@@ -317,7 +319,7 @@ public class KYCService {
 
             User kycUser = (User) authentication.getPrincipal();
 
-            //            User kycUser = userRepository.getReferenceById(id);
+
 
             KYCDataResDto kycResponse = KYCDataResDto.builder()
                     .firstName(kycUser.getFirstName())

@@ -28,6 +28,7 @@ public class KYCDataResDto {
     private String kin1;
     private String kin1Number;
     private String nationalId;
+    private int userId;
     private boolean isDocumentDataSubmitted;
     private boolean isUserImageSubmitted;
     private boolean isDigitalSignatureSubmitted;
