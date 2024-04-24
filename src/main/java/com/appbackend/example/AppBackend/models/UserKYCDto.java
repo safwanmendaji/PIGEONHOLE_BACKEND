@@ -8,15 +8,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserKYCDto extends  CreditScoreDtoDemo{
 
-//	public UserKYCDto(String firstName2, String mobile2, String email2, int score2, boolean isApproved2, String dob2,
-//			String address2, String maritalStatus2, String kin2, String kinNumber2, String kin12, String kin1Number2,
-//			String nationalId2, String gender2, String age2, byte[] documentData2, byte[] userImage2,
-//			byte[] digitalSignature2) {
-//		// TODO Auto-generated constructor stub
-//	}
 
 	private Integer userId;
 	private String firstName;
+
+	private String lastName;
 	private String mobile;
 	private String email;
 	private int score;
@@ -60,7 +56,7 @@ public class UserKYCDto extends  CreditScoreDtoDemo{
 
 	private byte[] digitalSignature;
 
-	public UserKYCDto(String firstName, String mobile, String email, int score, boolean isApproved, String dob, String address,
+	public UserKYCDto(String firstName,String lastName, String mobile, String email, int score, boolean isApproved, String dob, String address,
 					  String maritalStatus, String kin, String kinNumber, String kin1, String kin1Number, String nationalId,
 					  String gender, String age,byte[] documentData,
 					  byte[] userImage, byte[] digitalSignature , int reschedule ,  int occupation,int departments,
@@ -70,6 +66,7 @@ public class UserKYCDto extends  CreditScoreDtoDemo{
 
 	) {
 		this.firstName = firstName;
+		this.lastName = lastName;
 		this.mobile = mobile;
 		this.email = email;
 		this.score = score;
@@ -97,5 +94,7 @@ public class UserKYCDto extends  CreditScoreDtoDemo{
 		this.digitalSignature = digitalSignature;
 		this.blacklisted = blacklisted;
 	}
+
+
 
 }

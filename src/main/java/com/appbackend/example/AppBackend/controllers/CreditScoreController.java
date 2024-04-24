@@ -70,7 +70,7 @@ public class CreditScoreController {
 
 		}
 
-//		CreditScoreDTO creditScore = creditScoreService.getCreditScore(creditScoreDtoDemo,user.getId());
+
 
 		return ResponseEntity.ok().build();
 	}

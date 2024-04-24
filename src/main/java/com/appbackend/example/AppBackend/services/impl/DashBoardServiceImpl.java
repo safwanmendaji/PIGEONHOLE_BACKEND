@@ -51,6 +51,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 		List<UserDto> userDtos = users.stream().map(user -> {
 			int userId = user.getId();
 			String firstName = user.getFirstName();
+			String lastName = user.getLastName();
 			String mobile = user.getPhoneNumber();
 			String email = user.getEmail();
 			Boolean isApproved = user.getIsApproved();
@@ -58,7 +59,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
 			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
 
-			return new UserDto(userId, firstName, mobile, email, score, isApproved == null ? false : isApproved);
+			return new UserDto(userId, firstName,lastName, mobile, email, score, isApproved == null ? false : isApproved);
 		}).collect(Collectors.toList());
 		SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
 				.message("DATA GET SUCCESSFULLY.").data(userDtos).build();
@@ -76,6 +77,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 				KYC kyc = optionalKYC.get();
 
 				String firstName = user.getFirstName();
+				String lastName = user.getLastName();
 				String mobile = user.getPhoneNumber();
 				String email = user.getEmail();
 				boolean isApproved = user.getIsApproved();
@@ -139,7 +141,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 							: 0;
 				}
 
-				UserKYCDto userKYCDto = new UserKYCDto(firstName, mobile, email, score, isApproved, dob, address,
+				UserKYCDto userKYCDto = new UserKYCDto(firstName, lastName,mobile, email, score, isApproved, dob, address,
 						maritalStatus, kin, kinNumber, kin1, kin1Number, nationalId, gender, age, documentData,
 						userImage, digitalSignature, reschedule, occupation, departments, security,
 						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears,
@@ -166,22 +168,6 @@ public class DashBoardServiceImpl implements DashBoardService {
 		try {
 			Optional<KYC> optionalKyc = kycRepository.findById(userKycDto.getUserId());
 			if (optionalKyc.isPresent()) {
-				KYC kyc = optionalKyc.get();
-				kyc.setDob(userKycDto.getDob());
-				kyc.setAddress(userKycDto.getAddress());
-				kyc.setMaritalStatus(userKycDto.getMaritalStatus());
-				kyc.setKin(userKycDto.getKin());
-				kyc.setKinNumber(userKycDto.getKinNumber());
-				kyc.setKin1(userKycDto.getKin1());
-				kyc.setKin1Number(userKycDto.getKin1Number());
-				kyc.setNationalId(userKycDto.getNationalId());
-				kyc.setGender(userKycDto.getGender());
-				kyc.setAge(userKycDto.getAge());
-				kyc.setDocumentData(userKycDto.getDocumentData());
-				kyc.setUserImage(userKycDto.getUserImage());
-				kyc.setDigitalSignature(userKycDto.getDigitalSignature());
-
-				kycRepository.save(kyc);
 
 				creditScoreService.getCreditScore(userKycDto);
 

@@ -161,7 +161,7 @@ public class PaymentServiceImpl implements PaymentService {
             paymentMap.put("type", "mm");
             paymentMap.put("account", user.getPhoneNumber());
             paymentMap.put("amount", paymentDto.getAmount());
-            paymentMap.put("narration", paymentDto.getNarration());
+            paymentMap.put("narration", paymentDto.getDisbursementType());
             paymentMap.put("reference", ref);
 
         }catch (Exception e){
