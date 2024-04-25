@@ -22,12 +22,9 @@ import com.appbackend.example.AppBackend.models.PaymentDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
@@ -35,8 +32,8 @@ public class PaymentServiceImpl implements PaymentService {
     private RestTemplate restTemplate;
     @Value("${payment.username}")
     private String username;
-    
-    
+
+
     @Value("${payment.password}")
     private String password;
 
@@ -127,6 +124,78 @@ public class PaymentServiceImpl implements PaymentService {
 
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
+
+    @Override
+    public ResponseEntity<?> getByDisbursementHistoryById(int id) {
+
+        Optional<DisbursementsHistory> response = disbursementsRepository.findById(id);
+
+
+        if (response.isPresent()) {
+
+            DisbursementsHistory data = response.get();
+
+
+            SuccessDto successDto = SuccessDto.builder()
+                    .message("DISBURSEMENTS TRANSACTION STATUS IS : .")
+                    .code(HttpStatus.OK.value())
+                    .status("SUCCESS")
+                    .data(data)
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } else {
+
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Data not found for ID: " + id);
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
+        List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
+
+        Map<String, Long> groupedData = allDisbursements.stream()
+                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType, Collectors.counting()));
+
+        List<Map<String, String>> formattedData = groupedData.entrySet().stream()
+                .map(entry -> {
+                    Map<String, String> map = new HashMap<>();
+                    map.put("disbursementType", entry.getKey());
+                    map.put("count", String.valueOf(entry.getValue()));
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        SuccessDto successDto = SuccessDto.builder()
+                .message("Disbursement transaction status")
+                .code(HttpStatus.OK.value())
+                .status("SUCCESS")
+                .data(formattedData)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+    }
+
+    @Override
+    public ResponseEntity<?> getApprovedForTravel(int id) {
+        DisbursementsHistory entity = disbursementsRepository.findById(id).orElse(null);
+        if (entity != null) {
+            entity.setApprovedForTravel(true);
+            disbursementsRepository.save(entity);
+            String message = "Record with ID " + id + " approved for travel.";
+            SuccessDto successDto = SuccessDto.builder()
+                    .message(message)
+                    .code(HttpStatus.OK.value())
+                    .status("APPROVED")
+                    .data(null)
+                    .build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + id + " not found.");
+        }
+    }
+
+
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
         try {

@@ -42,6 +42,7 @@ public class DisbursementsHistory {
     private String destination;
     private UUID referenceId;
     private String narration;
+    private boolean approvedForTravel;
     @Lob
     private byte[] document;
     private String reason;
