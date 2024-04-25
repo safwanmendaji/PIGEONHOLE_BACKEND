@@ -4,6 +4,7 @@ import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
+import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
 import com.appbackend.example.AppBackend.models.ErrorDto;
 import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
@@ -177,12 +178,17 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public ResponseEntity<?> getApprovedForTravel(int id) {
-        DisbursementsHistory entity = disbursementsRepository.findById(id).orElse(null);
+    public ResponseEntity<?> getApprovedForTravel(DisbursementApprovalDto dto) {
+        DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
         if (entity != null) {
-            entity.setApprovedForTravel(true);
+            if(dto.isApprove()){
+                entity.setApprovedForTravel(true);
+            }else{
+                entity.setApprovedForTravel(false);
+
+            }
             disbursementsRepository.save(entity);
-            String message = "Record with ID " + id + " approved for travel.";
+            String message = "Record with ID " + dto.getId() + " approved for travel.";
             SuccessDto successDto = SuccessDto.builder()
                     .message(message)
                     .code(HttpStatus.OK.value())
@@ -191,7 +197,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + id + " not found.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + dto.getId() + " not found.");
         }
     }
 

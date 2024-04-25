@@ -1,5 +1,6 @@
 package com.appbackend.example.AppBackend.controllers;
 
+import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -36,15 +37,15 @@ public class PaymentController {
 	}
 
 
-	@GetMapping("/disbursement/all")
+	@GetMapping("/disbursement/history")
 	public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
 		ResponseEntity<?>  groupedData = paymentService.getAllDisbursementHistoryGroupedByType();
 		return ResponseEntity.ok(groupedData);
 	}
 
-	@PutMapping("/disbursement/aprovedfortravel/{id}")
-	public ResponseEntity<?> getApprovedForTravel(int id){
-		return paymentService.getApprovedForTravel(id);
+	@PutMapping("/disbursement/travel/approve/")
+	public ResponseEntity<?> getApprovedForTravel(@RequestBody DisbursementApprovalDto dto){
+		return paymentService.getApprovedForTravel(dto);
 	}
 
 }

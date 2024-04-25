@@ -17,7 +17,7 @@ public class UserLoanEligibility {
     private LoanEligibility eligibility;
 
     @Column(name="eligibility_amount")
-    private Double eligibilityAmount;
+    private Long eligibilityAmount;
 
     @OneToOne
     private User user;

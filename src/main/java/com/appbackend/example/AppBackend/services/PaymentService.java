@@ -1,6 +1,7 @@
 package com.appbackend.example.AppBackend.services;
 
 
+import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
 import com.appbackend.example.AppBackend.models.PaymentDto;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -15,5 +16,5 @@ public interface PaymentService {
 
 	ResponseEntity<?> getAllDisbursementHistoryGroupedByType();
 
-	ResponseEntity<?> getApprovedForTravel(int id);
+	ResponseEntity<?> getApprovedForTravel(DisbursementApprovalDto id);
 }

@@ -72,56 +72,107 @@ public class DashBoardServiceImpl implements DashBoardService {
 	public ResponseEntity<?> getUserAndKYCByUserId(int userId) {
 		Optional<User> optionalUser = userRepository.findById(userId);
 		if (optionalUser.isPresent()) {
+		User user = optionalUser.get();
+		Optional<KYC> optionalKYC = kycRepository.findById(userId);
+		if (optionalKYC.isPresent()) {
+			KYC kyc = optionalKYC.get();
+
+			String firstName = user.getFirstName();
+			String lastName = user.getLastName();
+			String mobile = user.getPhoneNumber();
+			String email = user.getEmail();
+			boolean isApproved = user.getIsApproved();
+
+			// Retrieve additional fields from KYC
+			String dob = kyc.getDob();
+			String address = kyc.getAddress();
+			String maritalStatus = kyc.getMaritalStatus();
+			String kin = kyc.getKin();
+			String kinNumber = kyc.getKinNumber();
+			String kin1 = kyc.getKin1();
+			String kin1Number = kyc.getKin1Number();
+			String nationalId = kyc.getNationalId();
+			String gender = kyc.getGender();
+			String age = kyc.getAge();
+
+			byte[] documentData = kyc.getDocumentData();
+			byte[] userImage = kyc.getUserImage();
+			byte[] digitalSignature = kyc.getDigitalSignature();
+
+
+
 				Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
-				int reschedule = 0;
-				int occupation = 0;
-				int departments = 0;
-				int security = 0;
-				int loanhistorycompletedloanswithoutarrears = 0;
-				int loanhistorycompletedloanswitharrearsnegative = 0;
-				int arrearsamountdefault = 0;
-				int daysinarrearspaymenthistory = 0;
-				int blackList = 0;
+			Integer reschedule = null;
+			Integer score = null;
+			Integer occupation = null;
+			Integer departments = null;
+			Integer security = null;
+			Integer loanhistorycompletedloanswithoutarrears = null;
+			Integer loanhistorycompletedloanswitharrearsnegative = null;
+			Integer arrearsamountdefault = null;
+			Integer daysinarrearspaymenthistory = null;
+			Integer blackList = null;
 				if (optionalCreditScore.isPresent()) {
 					CreditScore creditScore = optionalCreditScore.get();
+					score = creditScore.getTotalCreditScore();
 					reschedule = creditScore.getRescheduledHistory() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getRescheduledHistory())
-							: 0;
+							: null;
 					occupation = creditScore.getOccupation() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getOccupation())
-							: 0;
+							: null;
 					departments = creditScore.getWorkPlaceDepartment() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getWorkPlaceDepartment())
-							: 0;
+							: null;
 					security = creditScore.getSecurity() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getSecurity())
-							: 0;
+							: null;
 					loanhistorycompletedloanswitharrearsnegative = creditScore.getLoanHistoryLoansWithArrears() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getLoanHistoryLoansWithArrears())
-							: 0;
+							: null;
 					loanhistorycompletedloanswithoutarrears = creditScore.getLoanHistoryLoansWithOutArrears() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getLoanHistoryLoansWithOutArrears())
-							: 0;
+							: null;
 					arrearsamountdefault = creditScore.getAmountInArrears() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getAmountInArrears())
-							: 0;
+							: null;
 					daysinarrearspaymenthistory = creditScore.getDaysInArrears() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getDaysInArrears())
-							: 0;
+							: null;
 					blackList = creditScore.getBlacklisted() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getBlacklisted())
-							: 0;
+							: null;
 				}
 
-				UserKYCDto userKYCDto = new UserKYCDto(reschedule, occupation, departments, security,
-						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears,
-						arrearsamountdefault, daysinarrearspaymenthistory, blackList);
+//				UserKYCDto userKYCDto = new UserKYCDto(reschedule, occupation, departments, security,
+//						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears,
+//						arrearsamountdefault, daysinarrearspaymenthistory, blackList);
+
+			Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(userId);
+			UserLoanEligibility userLoanEligibility = loanEligibilityOptional.isPresent() ? loanEligibilityOptional.get() : null;
+
+
+
+			UserKYCDto userKYCDto = new UserKYCDto(
+					firstName, lastName ,mobile, email, score, isApproved, dob, address, maritalStatus, kin, kinNumber, kin1, kin1Number,
+					nationalId, gender, age, documentData, userImage, digitalSignature, reschedule, occupation, departments, security,
+					loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears, arrearsamountdefault,
+					daysinarrearspaymenthistory , blackList
+			);
+
+			if(userLoanEligibility != null){
+				userKYCDto.setLoanEligibility(userLoanEligibility.getEligibility().getId());
+				userKYCDto.setEligibilityAmount(userLoanEligibility.getEligibilityAmount());
+			}
 
 				userKYCDto.setUserId(userId);
 				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
 						.message("SUCCESS.").data(userKYCDto).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
-
+		} else {
+			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error").message("KYC not found for the user").build();
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
+		}
 		} else {
 			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
 					.message("USER NOT FOUND").build();
@@ -138,9 +189,13 @@ public class DashBoardServiceImpl implements DashBoardService {
 				creditScoreService.getCreditScore(userKycDto);
 				try {
 					if (userKycDto.getLoanEligibility() != 0 && userKycDto.getEligibilityAmount() != null) {
-						UserLoanEligibility userLoanEligibility = new UserLoanEligibility();
-						Optional<LoanEligibility> LoanEligibilityOption = loanEligibilityRepository.findById(userKycDto.getLoanEligibility());
 						Optional<User> userOptional = userRepository.findByid(userKycDto.getUserId());
+						UserLoanEligibility userLoanEligibility = new UserLoanEligibility();
+						if(userOptional.isPresent()) {
+							Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(userOptional.get().getId());
+							userLoanEligibility = loanEligibilityOptional.isPresent() ? loanEligibilityOptional.get() : new UserLoanEligibility();
+						}
+						Optional<LoanEligibility> LoanEligibilityOption = loanEligibilityRepository.findById(userKycDto.getLoanEligibility());
 						LoanEligibilityOption.ifPresent(userLoanEligibility::setEligibility);
 						userOptional.ifPresent(userLoanEligibility::setUser);
 						userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
