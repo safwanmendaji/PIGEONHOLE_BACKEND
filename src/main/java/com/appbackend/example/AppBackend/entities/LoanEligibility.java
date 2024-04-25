@@ -26,8 +26,7 @@ public class LoanEligibility {
 	
 	@Column(name="end_amount")
 	private long endAmount;
-	
-	
+
 	@Column(name="quality")
 	private String quality;
 	

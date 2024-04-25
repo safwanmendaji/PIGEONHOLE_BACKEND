@@ -9,6 +9,8 @@ import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.PaymentService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
@@ -58,22 +61,18 @@ public class PaymentServiceImpl implements PaymentService {
 
            User user = optionalUser.get();
 
-           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN)){
+           UUID uuid = UUID.randomUUID();
+
+           paymentDto.setReference(uuid);
+           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
                buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
-               SuccessDto successDto = SuccessDto.builder().message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
+               SuccessDto successDto = SuccessDto.builder()
+                       .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
                return ResponseEntity.status(HttpStatus.OK).body(successDto);
            }else {
-
                String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
                DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
-               HttpHeaders headers = new HttpHeaders();
-               headers.setContentType(MediaType.APPLICATION_JSON);
-               String tokenResponse = getPigeonToken(headers);
-               ObjectMapper mapper = new ObjectMapper();
-               JsonNode root = mapper.readTree(tokenResponse);
-               String accessToken = root.get("access_token").asText();
-
-               headers.setBearerAuth(accessToken);
+               HttpHeaders headers = getHttpHeaders();
 
                HttpEntity<Map> apiRequestEntity = new HttpEntity<>(buildDisbursementsReq(paymentDto, user), headers);
 
@@ -83,15 +82,15 @@ public class PaymentServiceImpl implements PaymentService {
                Map<String, Object> map = objectMapper.readValue(responseBody, Map.class);
 
                     System.out.println("ResponseEntity ::: = > " + responseEntity);
-                   System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
+                    System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
 
                    String refId = (String) map.get("transactionReference");
                    disbursementsHistory.setDisbursementsResponse(responseBody);
                    disbursementsHistory.setDisbursementsTransactionId(refId);
 
-                   String status = checkDisbursementsStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
-
-                  disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
+                   String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
+                   disbursementsHistory.setPaymentStatus(status);
+                   disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
 
                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
@@ -109,19 +108,87 @@ public class PaymentServiceImpl implements PaymentService {
        }
     }
 
-    private String checkDisbursementsStatus(String transactionId , HttpHeaders headers) {
-        return transactionId;
+    private HttpHeaders getHttpHeaders() throws JsonProcessingException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        String tokenResponse = getPigeonToken(headers);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(tokenResponse);
+        String accessToken = root.get("access_token").asText();
+
+        headers.setBearerAuth(accessToken);
+        return headers;
+    }
+    @Override
+    public ResponseEntity<?> checkDisbursementsStatus(String transactionId , HttpHeaders headers){
+        String status = checkDisbursementsCheckStatus(transactionId , null);
+
+        SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : .").code(HttpStatus.OK.value()).status("SUCCESS").data(status).build();
+
+        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+    }
+
+    public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
+        try {
+            if(headers == null){
+                headers = getHttpHeaders();
+            }
+            String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements/" + transactionId;
+            HttpEntity<Map> apiRequestEntity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, apiRequestEntity, String.class);
+            String responseBody = responseEntity.getBody();
+
+            // Parse JSON string to Map
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> resultMap = objectMapper.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
+
+            // Get the nested map under the "data" key
+            Map<String, Object> dataMap = (Map<String, Object>) resultMap.get("data");
+
+            // Get the value of "transactionStatus" from the nested map
+            String transactionStatus = (String) dataMap.get("transactionStatus");
+
+
+            return transactionStatus;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private DisbursementsHistory buildAndSaveDisbursementsHistory(PaymentDto paymentDto , User user , DisbursementsStatus disbursementsStatus , DisbursementsHistory disbursementsHistory) {
         disbursementsHistory = new DisbursementsHistory();
 
         try{
-            disbursementsHistory.setAmount(paymentDto.getAmount());
+            if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
+                disbursementsHistory.setTeamLeadName(paymentDto.getTravelDetails().getTeamLeadName());
+                disbursementsHistory.setTeamLeadContactNumber(paymentDto.getTravelDetails().getTeamLeadContactNumber());
+                disbursementsHistory.setStartDate(paymentDto.getTravelDetails().getStartDate());
+                disbursementsHistory.setEndDate(paymentDto.getTravelDetails().getEndDate());
+                disbursementsHistory.setDestination(paymentDto.getTravelDetails().getDestination());
+                disbursementsHistory.setDocument(paymentDto.getDocument());
+                disbursementsHistory.setAmount(paymentDto.getAmount());
+
+            }else if( paymentDto.getDisbursementsType().name().equals(DisbursementsType.SCHOOL_FEES.name()) ){
+                disbursementsHistory.setStudentCode(paymentDto.getStudentDetails().getStudentCode());
+                disbursementsHistory.setSchoolName(paymentDto.getStudentDetails().getSchoolName());
+                disbursementsHistory.setStudentName(paymentDto.getStudentDetails().getName());
+                disbursementsHistory.setOutstandingFees((double) paymentDto.getStudentDetails().getOutstandingFees());
+                disbursementsHistory.setStudentClass(paymentDto.getStudentDetails().getStudentClass());
+                if(paymentDto.getDocument() != null)
+                    disbursementsHistory.setDocument(paymentDto.getDocument());
+                disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
+            }else{
+                disbursementsHistory.setReason(paymentDto.getReason());
+                disbursementsHistory.setAmount(paymentDto.getAmount());
+
+            }
             disbursementsHistory.setUserId(user.getId());
             disbursementsHistory.setCreatedOn(LocalDateTime.now());
-            disbursementsHistory.setPaymentStatus(disbursementsStatus.INITIALIZE);
-            disbursementsHistory.setDisbursementsType(paymentDto.getDisbursementsType());
+            disbursementsHistory.setPaymentStatus(disbursementsStatus.INITIALIZE.name());
+            disbursementsHistory.setDisbursementsType(paymentDto.getDisbursementsType().name());
+            disbursementsHistory.setNarration(paymentDto.getDisbursementsType().name());
+            disbursementsHistory.setReferenceId(paymentDto.getReference());
 
             disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
 
@@ -155,14 +222,11 @@ public class PaymentServiceImpl implements PaymentService {
         Map<String, Object> paymentMap = new HashMap<>();
 
         try {
-            long currentTimestamp = Instant.now().toEpochMilli();
-            String ref = "SNM"+currentTimestamp;
-
             paymentMap.put("type", "mm");
             paymentMap.put("account", user.getPhoneNumber());
             paymentMap.put("amount", paymentDto.getAmount());
-            paymentMap.put("narration", paymentDto.getDisbursementType());
-            paymentMap.put("reference", ref);
+            paymentMap.put("narration", paymentDto.getDisbursementsType().name());
+            paymentMap.put("reference", paymentDto.getReference());
 
         }catch (Exception e){
             e.printStackTrace();

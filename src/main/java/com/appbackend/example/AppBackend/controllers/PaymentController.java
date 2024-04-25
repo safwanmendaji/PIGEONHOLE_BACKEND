@@ -3,10 +3,7 @@ package com.appbackend.example.AppBackend.controllers;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.appbackend.example.AppBackend.models.PaymentDto;
 
@@ -24,6 +21,11 @@ public class PaymentController {
 	public ResponseEntity<?> payment(@RequestBody PaymentDto paymentDto) {
 		return paymentService.payment(paymentDto);
 
+	}
+
+	@GetMapping("/disbursement/status/{id}")
+	public ResponseEntity<?> checkDisbursementStatus(@PathVariable String id){
+		return paymentService.checkDisbursementsStatus(id , null);
 	}
 
 }

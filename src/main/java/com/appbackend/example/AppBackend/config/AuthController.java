@@ -2,6 +2,7 @@ package com.appbackend.example.AppBackend.config;
 
 import com.appbackend.example.AppBackend.entities.KYC;
 import com.appbackend.example.AppBackend.entities.RefreshToken;
+import com.appbackend.example.AppBackend.entities.Role;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.models.ForgotPasswordModel.ChangePassword;
@@ -81,7 +82,7 @@ public class AuthController {
 			UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
 			User user = (User) userDetails;
 
-			if (!user.getIsApproved()) {
+			if (user.getRole().equals(Role.USER) && user.getIsApproved() != null && !user.getIsApproved()) {
 				ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.FORBIDDEN.value()).status("ERROR")
 						.message("YOUR PROFILE IS NOT APPROVED BY ADMIN").build();
 				return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);

@@ -4,22 +4,17 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.appbackend.example.AppBackend.entities.*;
+import com.appbackend.example.AppBackend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.appbackend.example.AppBackend.entities.CreditScore;
-import com.appbackend.example.AppBackend.entities.KYC;
-import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.models.UserDto;
 import com.appbackend.example.AppBackend.models.UserKYCDto;
-import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
-import com.appbackend.example.AppBackend.repositories.KYCRepository;
-import com.appbackend.example.AppBackend.repositories.KycCalculationDetailsRepository;
-import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
@@ -43,7 +38,13 @@ public class DashBoardServiceImpl implements DashBoardService {
 	private KycCalculationDetailsRepository kycCalculationDetailsRepository;
 
 	@Autowired
+	private LoanEligibilityRepository loanEligibilityRepository;
+
+	@Autowired
 	private UserService userService;
+
+	@Autowired
+	private UserLoanEligibilityRepository userLoanEligibilityRepository;
 
 	@Override
 	public ResponseEntity<?> getAllUsers() {
@@ -71,35 +72,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	public ResponseEntity<?> getUserAndKYCByUserId(int userId) {
 		Optional<User> optionalUser = userRepository.findById(userId);
 		if (optionalUser.isPresent()) {
-			User user = optionalUser.get();
-			Optional<KYC> optionalKYC = kycRepository.findById(userId);
-			if (optionalKYC.isPresent()) {
-				KYC kyc = optionalKYC.get();
-
-				String firstName = user.getFirstName();
-				String lastName = user.getLastName();
-				String mobile = user.getPhoneNumber();
-				String email = user.getEmail();
-				boolean isApproved = user.getIsApproved();
-
-				// Retrieve additional fields from KYC
-				String dob = kyc.getDob();
-				String address = kyc.getAddress();
-				String maritalStatus = kyc.getMaritalStatus();
-				String kin = kyc.getKin();
-				String kinNumber = kyc.getKinNumber();
-				String kin1 = kyc.getKin1();
-				String kin1Number = kyc.getKin1Number();
-				String nationalId = kyc.getNationalId();
-				String gender = kyc.getGender();
-				String age = kyc.getAge();
-
-				byte[] documentData = kyc.getDocumentData();
-				byte[] userImage = kyc.getUserImage();
-				byte[] digitalSignature = kyc.getDigitalSignature();
-
 				Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
-				int score = 0;
 				int reschedule = 0;
 				int occupation = 0;
 				int departments = 0;
@@ -111,51 +84,44 @@ public class DashBoardServiceImpl implements DashBoardService {
 				int blackList = 0;
 				if (optionalCreditScore.isPresent()) {
 					CreditScore creditScore = optionalCreditScore.get();
-					score = creditScore.getTotalCreditScore();
 					reschedule = creditScore.getRescheduledHistory() != null
-							? creditScoreService.findOldScoreValue(creditScore.getRescheduledHistory())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getRescheduledHistory())
 							: 0;
 					occupation = creditScore.getOccupation() != null
-							? creditScoreService.findOldScoreValue(creditScore.getOccupation())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getOccupation())
 							: 0;
 					departments = creditScore.getWorkPlaceDepartment() != null
-							? creditScoreService.findOldScoreValue(creditScore.getWorkPlaceDepartment())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getWorkPlaceDepartment())
 							: 0;
 					security = creditScore.getSecurity() != null
-							? creditScoreService.findOldScoreValue(creditScore.getSecurity())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getSecurity())
 							: 0;
 					loanhistorycompletedloanswitharrearsnegative = creditScore.getLoanHistoryLoansWithArrears() != null
-							? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithArrears())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getLoanHistoryLoansWithArrears())
 							: 0;
 					loanhistorycompletedloanswithoutarrears = creditScore.getLoanHistoryLoansWithOutArrears() != null
-							? creditScoreService.findOldScoreValue(creditScore.getLoanHistoryLoansWithOutArrears())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getLoanHistoryLoansWithOutArrears())
 							: 0;
 					arrearsamountdefault = creditScore.getAmountInArrears() != null
-							? creditScoreService.findOldScoreValue(creditScore.getAmountInArrears())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getAmountInArrears())
 							: 0;
 					daysinarrearspaymenthistory = creditScore.getDaysInArrears() != null
-							? creditScoreService.findOldScoreValue(creditScore.getDaysInArrears())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getDaysInArrears())
 							: 0;
 					blackList = creditScore.getBlacklisted() != null
-							? creditScoreService.findOldScoreValue(creditScore.getBlacklisted())
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getBlacklisted())
 							: 0;
 				}
 
-				UserKYCDto userKYCDto = new UserKYCDto(firstName, lastName,mobile, email, score, isApproved, dob, address,
-						maritalStatus, kin, kinNumber, kin1, kin1Number, nationalId, gender, age, documentData,
-						userImage, digitalSignature, reschedule, occupation, departments, security,
+				UserKYCDto userKYCDto = new UserKYCDto(reschedule, occupation, departments, security,
 						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears,
 						arrearsamountdefault, daysinarrearspaymenthistory, blackList);
-				userKYCDto.setUserId(userId);
 
+				userKYCDto.setUserId(userId);
 				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
 						.message("SUCCESS.").data(userKYCDto).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
-			} else {
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
-						.message("KYC not found for the user").build();
-				return ResponseEntity.status(HttpStatus.OK).body(successDto);
-			}
+
 		} else {
 			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
 					.message("USER NOT FOUND").build();
@@ -170,7 +136,21 @@ public class DashBoardServiceImpl implements DashBoardService {
 			if (optionalKyc.isPresent()) {
 
 				creditScoreService.getCreditScore(userKycDto);
+				try {
+					if (userKycDto.getLoanEligibility() != 0 && userKycDto.getEligibilityAmount() != null) {
+						UserLoanEligibility userLoanEligibility = new UserLoanEligibility();
+						Optional<LoanEligibility> LoanEligibilityOption = loanEligibilityRepository.findById(userKycDto.getLoanEligibility());
+						Optional<User> userOptional = userRepository.findByid(userKycDto.getUserId());
+						LoanEligibilityOption.ifPresent(userLoanEligibility::setEligibility);
+						userOptional.ifPresent(userLoanEligibility::setUser);
+						userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+						userLoanEligibilityRepository.save(userLoanEligibility);
 
+					}
+				}catch (Exception e){
+					e.printStackTrace();
+					System.out.println("Error in userLoanEligibility ::   " + e.getMessage());
+				}
 				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success")
 						.message("KYC UPDATED SUCCESSFULLY.").build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);

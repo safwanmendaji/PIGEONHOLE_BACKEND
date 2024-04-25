@@ -17,6 +17,7 @@ import java.net.URL;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Base64;
 
 
@@ -47,6 +48,7 @@ public class OtpService {
     public String saveOtp(User user) {
         String otp = generateOtp();
         user.setOtp(otp);
+        System.out.println("Time --->> " + Instant.now());
         user.setOtpGeneratedTime(Instant.now());
         userRepository.save(user);
         return otp;

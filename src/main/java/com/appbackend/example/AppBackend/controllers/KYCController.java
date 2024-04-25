@@ -62,14 +62,7 @@ public class KYCController {
 
     @GetMapping("/docData")
     public ResponseEntity<?> getKYCDocData(@RequestParam Integer id) {
-//        User user = (User) authentication.getPrincipal();
-
         log.info("DOC DATA HERE HII");
-//        User user = userRepository.findByid(id).orElseThrow(()->{""});
-//        User user1=(User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-
-//        System.out.println("ID IS HERE "+user1.getId()+"/n/n");
-//        log.info(user.toString());
 
         Object kycDocData = kycService.getUserKYCDocDataById(id);
 

@@ -215,9 +215,9 @@ public class KYCService {
         double kinCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(kinCreditScore , 5);
 
 
-        String ageCreditObject = creditScoreService.makeCreditScoreOjb(ageCreditsScore, 1, (float ) ageCreditScoreCalculated);
-        String genderCreditObject = creditScoreService.makeCreditScoreOjb(genderCreditScore, 1, (float )  genderCreditScoreCalculated);
-        String kinCreditObject = creditScoreService.makeCreditScoreOjb(kinCreditScore, 5, (float ) kinCreditScoreCalculated);
+        String ageCreditObject = creditScoreService.makeCreditScoreOjb(ageCreditsScore, 1, (float ) ageCreditScoreCalculated,0);
+        String genderCreditObject = creditScoreService.makeCreditScoreOjb(genderCreditScore, 1, (float )  genderCreditScoreCalculated,0);
+        String kinCreditObject = creditScoreService.makeCreditScoreOjb(kinCreditScore, 5, (float ) kinCreditScoreCalculated,0);
 
 
 
