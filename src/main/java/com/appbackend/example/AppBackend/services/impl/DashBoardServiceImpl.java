@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.appbackend.example.AppBackend.entities.*;
+import com.appbackend.example.AppBackend.enums.KycStatus;
+import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,8 @@ import com.appbackend.example.AppBackend.models.UserKYCDto;
 import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
+
+import javax.swing.text.html.Option;
 
 @Service
 public class DashBoardServiceImpl implements DashBoardService {
@@ -223,9 +227,8 @@ public class DashBoardServiceImpl implements DashBoardService {
 	}
 
 	@Override
-	public ResponseEntity<?> enableDisEnabledUser(int id) {
-	    Optional<User> optionalUser = userService.getUserById(id);
-
+	public ResponseEntity<?> enableDisEnabledUser(ApprovalDeclineDto dto) {
+	    Optional<User> optionalUser = userService.getUserById(dto.getId());
 	    if (!optionalUser.isPresent()) {
 	        SuccessDto errorResponse = SuccessDto.builder()
 	                .code(HttpStatus.NOT_FOUND.value())
@@ -234,7 +237,6 @@ public class DashBoardServiceImpl implements DashBoardService {
 	                .build();
 	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
 	    }
-
 	    User user = optionalUser.get();
 	    Boolean isApproved = user.getIsApproved();
 
@@ -242,12 +244,28 @@ public class DashBoardServiceImpl implements DashBoardService {
 	        SuccessDto errorResponse = SuccessDto.builder()
 	                .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
 	                .status("Error")
-	                .message("Approval status is null for user with ID " + id)
+	                .message("Approval status is null for user with ID " + dto.getId())
 	                .build();
 	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
 	    }
 
 	    user.setIsApproved(!isApproved);
+		Optional<KYC> optionalKyc =  kycRepository.findByUserId(dto.getId());
+
+		KYC kyc = optionalKyc.get();
+
+		if(user.getIsApproved().equals(true)){
+
+
+		kyc.setStatus(String.valueOf(KycStatus.APPROVED));
+
+		kycRepository.save(kyc);
+
+		}
+		if(user.getIsApproved().equals(false)){
+			kyc.setStatus(String.valueOf(KycStatus.DECLINED));
+			kyc.setReason(dto.getReason());
+		}
 
 	    userRepository.save(user);
 
@@ -255,7 +273,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	    SuccessDto successResponse = SuccessDto.builder()
 	            .code(HttpStatus.OK.value())
 	            .status("Success")
-	            .message("User with ID " + id + " has been " + status)
+	            .message("User with ID " + dto.getId() + " has been " + status)
 	            .build();
 	    return ResponseEntity.status(HttpStatus.OK).body(successResponse);
 	}

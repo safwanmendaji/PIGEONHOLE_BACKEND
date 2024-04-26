@@ -4,6 +4,7 @@ package com.appbackend.example.AppBackend.services;
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.KYC;
 import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.enums.KycStatus;
 import com.appbackend.example.AppBackend.models.KYCDataResDto;
 //import com.appbackend.example.AppBackend.models.KYCDto;
 
@@ -103,6 +104,9 @@ public class KYCService {
             if (userImage != null && existingKyc.getUserImage() == null) {
                 existingKyc.setUserImage(ImageUtils.compressImage(userImage.getBytes()));
             }
+
+            existingKyc.setStatus(String.valueOf(KycStatus.PENDING));
+
 
 
             System.out.println(calculateAge(kycRequest.getDob()));

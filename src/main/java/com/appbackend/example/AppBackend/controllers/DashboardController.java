@@ -3,7 +3,9 @@ package com.appbackend.example.AppBackend.controllers;
 import java.util.List;
 import java.util.Map;
 
+import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -71,9 +73,9 @@ public class DashboardController {
 		return dashboardService.updateUserKyc(userKycDto);
 	}
 
-	@PutMapping("/users/enable-disable/{id}")
-	public ResponseEntity<?> enableOrDisableUser(@PathVariable int id) {
-		return dashboardService.enableDisEnabledUser(id);
+	@PutMapping("/users/enable-disable")
+	public ResponseEntity<?> enableOrDisableUser(@RequestBody ApprovalDeclineDto dto) {
+		return dashboardService.enableDisEnabledUser(dto);
 
 	}
 

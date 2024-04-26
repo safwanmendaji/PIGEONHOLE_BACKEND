@@ -105,6 +105,7 @@ public class KYCController {
         KYCDataResDto kycResponse = null;
         try {
             KYCDataResDto kycRequest = mapper.readValue(kycRequestString, KYCDataResDto.class);
+
             kycResponse = kycService.saveUserKYC(kycRequest, documentData, userImage, digitalSignature);
         }catch (Exception e){
             ErrorDto errorDto = ErrorDto.builder().code(500).status("ERROR").message("Something went wrong.").build();

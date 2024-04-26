@@ -1,6 +1,7 @@
 package com.appbackend.example.AppBackend.entities;
 
 
+import com.appbackend.example.AppBackend.enums.KycStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -49,6 +50,10 @@ public class KYC implements Serializable {
 
     private String age;
 
+    private String status;
+
+    private String reason;
+
 
     @Lob
     private byte[] documentData;
@@ -58,6 +63,8 @@ public class KYC implements Serializable {
 
     @Lob
     private byte[] digitalSignature;
+
+
 //
 //    //    will be true on final submit
 //    private boolean isSubmitted;
