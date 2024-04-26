@@ -214,8 +214,10 @@ public class PaymentServiceImpl implements PaymentService {
         SuccessDto successDto = SuccessDto.builder()
                 .message(message)
                 .code(HttpStatus.OK.value())
+                .status("SUCESS")
                 .data(groupedDisbursementHistory)
                 .build();
+
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
 
