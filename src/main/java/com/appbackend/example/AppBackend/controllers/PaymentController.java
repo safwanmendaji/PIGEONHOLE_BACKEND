@@ -39,8 +39,7 @@ public class PaymentController {
 
 	@GetMapping("/disbursement/history")
 	public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
-		ResponseEntity<?>  groupedData = paymentService.getAllDisbursementHistoryGroupedByType();
-		return ResponseEntity.ok(groupedData);
+		return paymentService.getAllDisbursementHistoryGroupedByType();
 	}
 
 	@PutMapping("/disbursement/travel/approve/")
