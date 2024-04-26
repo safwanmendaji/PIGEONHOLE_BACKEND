@@ -84,9 +84,6 @@ public class KYCController {
 
         User user = (User) authentication.getPrincipal();
 
-//        kycService.getUserKYCById(user.getId());
-
-
         return new ResponseEntity<>(kycService.getUserKYCDataById(user.getId(), authentication)
                 .orElseThrow(() -> new RuntimeException("KYC OF USER NOT FOUND")), HttpStatus.OK);
 //

@@ -230,6 +230,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
 							userCredit.setAvailableBalance(userKycDto.getEligibilityAmount().doubleValue());
+							userCredit.setUtilizeBalance(0.0);
 							userCredit.setUser(user);
 							utilizeUserCreditRepository.save(userCredit);
 						}else if(updateEligibilityAmount){

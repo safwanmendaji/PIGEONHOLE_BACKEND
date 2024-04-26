@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -64,7 +63,27 @@ public class PaymentServiceImpl implements PaymentService {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
            }
 
-//           UtilizeUserCredit userCreditList = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId()).get(0);
+           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId());
+           if(userCredit == null) {
+               ErrorDto errorDto = ErrorDto.builder()
+                       .code(HttpStatus.BAD_REQUEST.value())
+                       .status("ERROR")
+                       .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
+                       .build();
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+           }
+
+            double availableLoanAmount = userCredit.getAvailableBalance();
+
+           if(availableLoanAmount < paymentDto.getAmount()){
+               ErrorDto errorDto = ErrorDto.builder()
+                       .code(HttpStatus.BAD_REQUEST.value())
+                       .status("ERROR")
+                       .message("INSUFFICIENT BALANCE IN YOUR ACCOUNT. AVAILABLE BALANCE IS : "+ availableLoanAmount)
+                       .build();
+               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+           }
+
 
            User user = optionalUser.get();
            UUID uuid = UUID.randomUUID();
@@ -76,7 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
                        .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
                return ResponseEntity.status(HttpStatus.OK).body(successDto);
            }else {
-               DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user);
+               DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user , userCredit);
 
                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
@@ -94,7 +113,7 @@ public class PaymentServiceImpl implements PaymentService {
        }
     }
 
-    private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user) throws JsonProcessingException {
+    private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit) throws JsonProcessingException {
         DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
 
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
@@ -116,13 +135,18 @@ public class PaymentServiceImpl implements PaymentService {
 
         String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
         disbursementsHistory.setPaymentStatus(status);
-        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
-            List<UtilizeUserCredit> utilizeUserCreditList = utilizeUserCreditRepository.findByUserIdOrderByIdDesc(paymentDto.getUserId());
-            if(utilizeUserCreditList.isEmpty()){
 
-            }
-        }
         disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
+
+        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
+            double availableBalance = userCredit.getAvailableBalance();
+            UtilizeUserCredit userUtilizeCredit = new UtilizeUserCredit();
+            userUtilizeCredit.setUtilizeBalance((double) paymentDto.getAmount());
+            userUtilizeCredit.setAvailableBalance(availableBalance - paymentDto.getAmount());
+            userUtilizeCredit.setHistory(disbursementsHistory);
+            userUtilizeCredit.setUserLoanEligibility(userCredit.getUserLoanEligibility());
+            utilizeUserCreditRepository.save(userUtilizeCredit);
+        }
         return disbursementsHistory;
     }
 
