@@ -2,6 +2,7 @@ package com.appbackend.example.AppBackend.services.impl;
 
 import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.entities.UtilizeUserCredit;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
@@ -9,6 +10,7 @@ import com.appbackend.example.AppBackend.models.ErrorDto;
 import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
+import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepository;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -46,6 +48,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private DisbursementsRepository disbursementsRepository;
 
+    @Autowired
+    private UtilizeUserCreditRepository utilizeUserCreditRepository;
+
     @Override
     public ResponseEntity<?> payment(PaymentDto paymentDto) {
        try {
@@ -59,38 +64,19 @@ public class PaymentServiceImpl implements PaymentService {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
            }
 
+//           UtilizeUserCredit userCreditList = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId()).get(0);
+
            User user = optionalUser.get();
-
            UUID uuid = UUID.randomUUID();
-
            paymentDto.setReference(uuid);
+
            if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
                buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
                SuccessDto successDto = SuccessDto.builder()
                        .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
                return ResponseEntity.status(HttpStatus.OK).body(successDto);
            }else {
-               String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
-               DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
-               HttpHeaders headers = getHttpHeaders();
-
-               HttpEntity<Map> apiRequestEntity = new HttpEntity<>(buildDisbursementsReq(paymentDto, user), headers);
-
-               ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
-               String responseBody = responseEntity.getBody();
-               ObjectMapper objectMapper = new ObjectMapper();
-               Map<String, Object> map = objectMapper.readValue(responseBody, Map.class);
-
-                    System.out.println("ResponseEntity ::: = > " + responseEntity);
-                    System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
-
-                   String refId = (String) map.get("transactionReference");
-                   disbursementsHistory.setDisbursementsResponse(responseBody);
-                   disbursementsHistory.setDisbursementsTransactionId(refId);
-
-                   String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
-                   disbursementsHistory.setPaymentStatus(status);
-                   disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
+               DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user);
 
                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
@@ -106,6 +92,38 @@ public class PaymentServiceImpl implements PaymentService {
            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
 
        }
+    }
+
+    private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user) throws JsonProcessingException {
+        DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
+
+        String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
+        HttpHeaders headers = getHttpHeaders();
+
+        HttpEntity<Map> apiRequestEntity = new HttpEntity<>(buildDisbursementsReq(paymentDto, user), headers);
+
+        ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
+        String responseBody = responseEntity.getBody();
+        ObjectMapper objectMapper = new ObjectMapper();
+        Map<String, Object> map = objectMapper.readValue(responseBody, Map.class);
+
+        System.out.println("ResponseEntity ::: = > " + responseEntity);
+        System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
+
+        String refId = (String) map.get("transactionReference");
+        disbursementsHistory.setDisbursementsResponse(responseBody);
+        disbursementsHistory.setDisbursementsTransactionId(refId);
+
+        String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
+        disbursementsHistory.setPaymentStatus(status);
+        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
+            List<UtilizeUserCredit> utilizeUserCreditList = utilizeUserCreditRepository.findByUserIdOrderByIdDesc(paymentDto.getUserId());
+            if(utilizeUserCreditList.isEmpty()){
+
+            }
+        }
+        disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
+        return disbursementsHistory;
     }
 
     private HttpHeaders getHttpHeaders() throws JsonProcessingException {
@@ -185,6 +203,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (entity != null) {
             if(dto.isApprove()){
                 entity.setApprovedForTravel(true);
+//                payment()
             }else{
                 entity.setApprovedForTravel(false);
 
@@ -271,7 +290,7 @@ public class PaymentServiceImpl implements PaymentService {
                 disbursementsHistory.setStudentClass(paymentDto.getStudentDetails().getStudentClass());
                 if(paymentDto.getDocument() != null)
                     disbursementsHistory.setDocument(paymentDto.getDocument());
-                disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
+                    disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
             }else{
                 disbursementsHistory.setReason(paymentDto.getReason());
                 disbursementsHistory.setAmount(paymentDto.getAmount());
@@ -279,7 +298,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
             disbursementsHistory.setUserId(user.getId());
             disbursementsHistory.setCreatedOn(LocalDateTime.now());
-            disbursementsHistory.setPaymentStatus(disbursementsStatus.INITIALIZE.name());
+            disbursementsHistory.setPaymentStatus(DisbursementsStatus.INITIALIZE.name());
             disbursementsHistory.setDisbursementsType(paymentDto.getDisbursementsType().name());
             disbursementsHistory.setNarration(paymentDto.getDisbursementsType().name());
             disbursementsHistory.setReferenceId(paymentDto.getReference());

@@ -19,6 +19,10 @@ public class UserLoanEligibility {
     @Column(name="eligibility_amount")
     private Long eligibilityAmount;
 
+    @Column(name="old_eligibility_amount")
+    private Long oldEligibilityAmount;
+
+
     @OneToOne
     private User user;
 

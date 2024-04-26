@@ -11,6 +11,8 @@ import com.appbackend.example.AppBackend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	@Autowired
 	private UserLoanEligibilityRepository userLoanEligibilityRepository;
+
+	@Autowired
+	private UtilizeUserCreditRepository utilizeUserCreditRepository;
 
 	@Override
 	public ResponseEntity<?> getAllUsers() {
@@ -187,33 +192,60 @@ public class DashBoardServiceImpl implements DashBoardService {
 	@Transactional
 	public ResponseEntity<?> updateUserKyc(UserKYCDto userKycDto) {
 		try {
+			boolean updateEligibilityAmount = false;
 			Optional<KYC> optionalKyc = kycRepository.findById(userKycDto.getUserId());
 			if (optionalKyc.isPresent()) {
 
 				creditScoreService.getCreditScore(userKycDto);
-				try {
+
 					if (userKycDto.getLoanEligibility() != 0 && userKycDto.getEligibilityAmount() != null) {
-						Optional<User> userOptional = userRepository.findByid(userKycDto.getUserId());
-						UserLoanEligibility userLoanEligibility = new UserLoanEligibility();
-						if(userOptional.isPresent()) {
-							Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(userOptional.get().getId());
-							userLoanEligibility = loanEligibilityOptional.isPresent() ? loanEligibilityOptional.get() : new UserLoanEligibility();
+						UserLoanEligibility userLoanEligibility;
+
+						User user = userRepository.findByid(userKycDto.getUserId())
+								.orElseThrow(() -> new UsernameNotFoundException("User not found with this id: " + userKycDto.getUserId()));
+						LoanEligibility loanEligibility = loanEligibilityRepository.findById(userKycDto.getLoanEligibility())
+								.orElseThrow(() -> new UsernameNotFoundException("LoanEligibility not found with this id: " + userKycDto.getLoanEligibility()));
+
+						Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(user.getId());
+						long oldEligibilityAmount = 0;
+						if(loanEligibilityOptional.isPresent()) {
+							userLoanEligibility = loanEligibilityOptional.get();
+							oldEligibilityAmount = userLoanEligibility.getEligibilityAmount();
+						} else {
+							userLoanEligibility = new UserLoanEligibility();
 						}
-						Optional<LoanEligibility> LoanEligibilityOption = loanEligibilityRepository.findById(userKycDto.getLoanEligibility());
-						LoanEligibilityOption.ifPresent(userLoanEligibility::setEligibility);
-						userOptional.ifPresent(userLoanEligibility::setUser);
-						userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
-						userLoanEligibilityRepository.save(userLoanEligibility);
+						userLoanEligibility.setEligibility(loanEligibility);
+						userLoanEligibility.setUser(user);
+						if(userKycDto.getEligibilityAmount() == oldEligibilityAmount){
+							userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+						}else{
+							userLoanEligibility.setOldEligibilityAmount(oldEligibilityAmount);
+							userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+							updateEligibilityAmount = true;
+						}
+						userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
+
+						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(user.getId());
+						if (userCredit == null){
+							userCredit = new UtilizeUserCredit();
+							userCredit.setUserLoanEligibility(userLoanEligibility);
+							userCredit.setAvailableBalance(userKycDto.getEligibilityAmount().doubleValue());
+							userCredit.setUser(user);
+							utilizeUserCreditRepository.save(userCredit);
+						}else if(updateEligibilityAmount){
+							long increaseAmount = userKycDto.getEligibilityAmount() - oldEligibilityAmount;
+							double availableAmount = userCredit.getAvailableBalance();
+							userCredit.setAvailableBalance(availableAmount + increaseAmount);
+							utilizeUserCreditRepository.save(userCredit);
+						}
 
 					}
-				}catch (Exception e){
-					e.printStackTrace();
-					System.out.println("Error in userLoanEligibility ::   " + e.getMessage());
-				}
-				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success")
-						.message("KYC UPDATED SUCCESSFULLY.").build();
-				return ResponseEntity.status(HttpStatus.OK).body(successDto);
-			} else {
+					SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success")
+							.message("KYC UPDATED SUCCESSFULLY.").build();
+					return ResponseEntity.status(HttpStatus.OK).body(successDto);
+
+
+					} else {
 				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.NOT_FOUND.value()).status("Error")
 						.message("KYC RECORDS NOT FOUND FOR ID : . " + userKycDto.getUserId()).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
