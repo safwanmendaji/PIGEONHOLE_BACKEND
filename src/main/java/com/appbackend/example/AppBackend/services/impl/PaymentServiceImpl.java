@@ -175,23 +175,16 @@ public class PaymentServiceImpl implements PaymentService {
     public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
         List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
 
-        Map<String, Long> groupedData = allDisbursements.stream()
-                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType, Collectors.counting()));
+        Map<String, List<DisbursementsHistory>> groupedData = allDisbursements.stream()
+                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
 
-        List<Map<String, String>> formattedData = groupedData.entrySet().stream()
-                .map(entry -> {
-                    Map<String, String> map = new HashMap<>();
-                    map.put("disbursementType", entry.getKey());
-                    map.put("count", String.valueOf(entry.getValue()));
-                    return map;
-                })
-                .collect(Collectors.toList());
+
 
         SuccessDto successDto = SuccessDto.builder()
                 .message("Disbursement transaction status")
                 .code(HttpStatus.OK.value())
                 .status("SUCCESS")
-                .data(formattedData)
+                .data(groupedData)
                 .build();
 
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
