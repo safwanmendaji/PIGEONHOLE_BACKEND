@@ -259,6 +259,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	}
 
 	@Override
+	@Transactional
 	public ResponseEntity<?> enableDisEnabledUser(ApprovalDeclineDto dto) {
 	    Optional<User> optionalUser = userService.getUserById(dto.getId());
 	    if (!optionalUser.isPresent()) {
