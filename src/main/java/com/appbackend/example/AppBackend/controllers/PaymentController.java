@@ -1,15 +1,13 @@
 package com.appbackend.example.AppBackend.controllers;
 
-import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
+import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.appbackend.example.AppBackend.models.PaymentDto;
-
-import java.util.List;
-import java.util.Map;
 
 
 @RestController
@@ -44,8 +42,13 @@ public class PaymentController {
 	}
 
 	@PutMapping("/disbursement/travel/approve/")
-	public ResponseEntity<?> getApprovedForTravel(@RequestBody DisbursementApprovalDto dto){
+	public ResponseEntity<?> getApprovedForTravel(@RequestBody ApprovalDeclineDto dto){
 		return paymentService.getApprovedForTravel(dto);
+	}
+
+	@GetMapping("/disbursement/history/user")
+	public ResponseEntity<?>  getDisbursementHistoryOfUser(Authentication authentication){
+		return paymentService.getDisbursementHistoryOfUser(authentication);
 	}
 
 }

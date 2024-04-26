@@ -4,7 +4,7 @@ import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
-import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
+import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.models.ErrorDto;
 import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -178,7 +180,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public ResponseEntity<?> getApprovedForTravel(DisbursementApprovalDto dto) {
+    public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) {
         DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
         if (entity != null) {
             if(dto.isApprove()){
@@ -201,6 +203,21 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    @Override
+    public ResponseEntity<?> getDisbursementHistoryOfUser(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        Integer userId = user.getId();
+        List<DisbursementsHistory> disbursementHistoryofUser = disbursementsRepository.findByUserId(userId);
+        Map<String, List<DisbursementsHistory>> groupedDisbursementHistory = disbursementHistoryofUser.stream()
+                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
+        String message = user.getFirstName() + " Disbursement History";
+        SuccessDto successDto = SuccessDto.builder()
+                .message(message)
+                .code(HttpStatus.OK.value())
+                .data(groupedDisbursementHistory)
+                .build();
+        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+    }
 
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {

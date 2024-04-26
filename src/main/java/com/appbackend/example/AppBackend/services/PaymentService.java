@@ -1,10 +1,11 @@
 package com.appbackend.example.AppBackend.services;
 
 
-import com.appbackend.example.AppBackend.models.DisbursementApprovalDto;
+import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.models.PaymentDto;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 
 public interface PaymentService {
 	ResponseEntity<?> payment(PaymentDto paymentDto);
@@ -16,5 +17,7 @@ public interface PaymentService {
 
 	ResponseEntity<?> getAllDisbursementHistoryGroupedByType();
 
-	ResponseEntity<?> getApprovedForTravel(DisbursementApprovalDto id);
+	ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto id);
+
+	ResponseEntity<?> getDisbursementHistoryOfUser(Authentication authentication);
 }
