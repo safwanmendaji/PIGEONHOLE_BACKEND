@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.web.client.RestTemplate;
 
+
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 
 @Configuration
@@ -21,6 +22,7 @@ public class Appconfig {
 
 	@Autowired
 	private UserRepository userRepository;
+
 
 	@Bean
 	public UserDetailsService userDetailsService() {
@@ -58,3 +60,4 @@ public class Appconfig {
 	}
 
 }
+
