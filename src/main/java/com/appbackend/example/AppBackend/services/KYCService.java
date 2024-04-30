@@ -17,7 +17,6 @@ import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepositor
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -332,7 +331,7 @@ public class KYCService {
                     .isDigitalSignatureSubmitted(kyc.getDigitalSignature() != null)
                     .build();
 
-            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(kyc.getUser().getId());
+            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(kyc.getUser().getId());
             if(userCredit != null){
                 Map<String , Object> map = new HashMap<>();
                 long eligibleAmount = userCredit.getUserLoanEligibility().getEligibilityAmount();

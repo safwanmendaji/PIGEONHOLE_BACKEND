@@ -2,6 +2,7 @@ package com.appbackend.example.AppBackend.controllers;
 
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.services.PaymentService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -42,7 +43,7 @@ public class PaymentController {
 	}
 
 	@PutMapping("/disbursement/travel/approve/")
-	public ResponseEntity<?> getApprovedForTravel(@RequestBody ApprovalDeclineDto dto){
+	public ResponseEntity<?> getApprovedForTravel(@RequestBody ApprovalDeclineDto dto) throws JsonProcessingException {
 		return paymentService.getApprovedForTravel(dto);
 	}
 
@@ -50,5 +51,10 @@ public class PaymentController {
 	public ResponseEntity<?>  getDisbursementHistoryOfUser(Authentication authentication){
 		return paymentService.getDisbursementHistoryOfUser(authentication);
 	}
+
+//	@GetMapping("/disbursement/status/{id}")
+//	public ResponseEntity<?>  getDisbursementStatus(@PathVariable String id){
+//		return paymentService.getDisbursementStatus(id);
+//	}
 
 }

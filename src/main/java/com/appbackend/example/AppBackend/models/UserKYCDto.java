@@ -57,6 +57,7 @@ public class UserKYCDto{
 	private byte[] digitalSignature;
 	private int loanEligibility;
 	private Long eligibilityAmount;
+	private String status;
 
 	public UserKYCDto(String firstName, String lastName ,String mobile, String email, int score, boolean isApproved, String dob, String address,
 					  String maritalStatus, String kin, String kinNumber, String kin1, String kin1Number, String nationalId,
@@ -64,7 +65,7 @@ public class UserKYCDto{
 					  byte[] userImage, byte[] digitalSignature , Integer reschedule ,  Integer occupation,Integer departments,
 					  Integer security,   Integer loanhistorycompletedloanswitharrearsnegative , Integer loanhistorycompletedloanswithoutarrears
 					, Integer arrearsamountdefault, Integer daysinarrearspaymenthistor,
-					  Integer blacklisted
+					  Integer blacklisted , String status
 
 	) {
 		this.firstName = firstName;
@@ -95,6 +96,7 @@ public class UserKYCDto{
 		this.userImage = userImage;
 		this.digitalSignature = digitalSignature;
 		this.blacklisted = blacklisted;
+		this.status =status;
 	}
 
 }

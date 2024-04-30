@@ -11,7 +11,6 @@ import com.appbackend.example.AppBackend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +21,6 @@ import com.appbackend.example.AppBackend.models.UserKYCDto;
 import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
-
-import javax.swing.text.html.Option;
 
 @Service
 public class DashBoardServiceImpl implements DashBoardService {
@@ -103,6 +100,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 			String nationalId = kyc.getNationalId();
 			String gender = kyc.getGender();
 			String age = kyc.getAge();
+			String status = kyc.getStatus();
 
 			byte[] documentData = kyc.getDocumentData();
 			byte[] userImage = kyc.getUserImage();
@@ -166,7 +164,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 					firstName, lastName ,mobile, email, score, isApproved, dob, address, maritalStatus, kin, kinNumber, kin1, kin1Number,
 					nationalId, gender, age, documentData, userImage, digitalSignature, reschedule, occupation, departments, security,
 					loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears, arrearsamountdefault,
-					daysinarrearspaymenthistory , blackList
+					daysinarrearspaymenthistory , blackList , status
 			);
 
 			if(userLoanEligibility != null){
@@ -198,7 +196,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 				creditScoreService.getCreditScore(userKycDto);
 
-					if (userKycDto.getLoanEligibility() != 0 && userKycDto.getEligibilityAmount() != null) {
+					if (userKycDto.getLoanEligibility() != 0) {
 						UserLoanEligibility userLoanEligibility;
 
 						User user = userRepository.findByid(userKycDto.getUserId())
@@ -208,33 +206,56 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 						Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(user.getId());
 						long oldEligibilityAmount = 0;
+						long newEligibilityAmount = 0;
+
 						if(loanEligibilityOptional.isPresent()) {
 							userLoanEligibility = loanEligibilityOptional.get();
 							oldEligibilityAmount = userLoanEligibility.getEligibilityAmount();
 						} else {
 							userLoanEligibility = new UserLoanEligibility();
+
 						}
 						userLoanEligibility.setEligibility(loanEligibility);
 						userLoanEligibility.setUser(user);
-						if(userKycDto.getEligibilityAmount() == oldEligibilityAmount){
-							userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+
+
+						if(userKycDto.getEligibilityAmount() != null){
+							newEligibilityAmount = userKycDto.getEligibilityAmount();
+						}else{
+							newEligibilityAmount = loanEligibility.getEndAmount();
+						}
+
+						if(newEligibilityAmount == oldEligibilityAmount){
+							if(userKycDto.getEligibilityAmount() != null) {
+								userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+							}else{
+								userLoanEligibility.setEligibilityAmount(loanEligibility.getEndAmount());
+							}
 						}else{
 							userLoanEligibility.setOldEligibilityAmount(oldEligibilityAmount);
-							userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+							if(userKycDto.getEligibilityAmount() != null) {
+								userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
+							}else{
+								userLoanEligibility.setEligibilityAmount(loanEligibility.getEndAmount());
+							}
 							updateEligibilityAmount = true;
 						}
 						userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
 
-						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(user.getId());
+						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(user.getId());
 						if (userCredit == null){
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
-							userCredit.setAvailableBalance(userKycDto.getEligibilityAmount().doubleValue());
+							userCredit.setAvailableBalance(userKycDto.getEligibilityAmount() != null
+									? userKycDto.getEligibilityAmount().doubleValue()
+									: loanEligibility.getEndAmount());
 							userCredit.setUtilizeBalance(0.0);
 							userCredit.setUser(user);
 							utilizeUserCreditRepository.save(userCredit);
 						}else if(updateEligibilityAmount){
-							long increaseAmount = userKycDto.getEligibilityAmount() - oldEligibilityAmount;
+							long increaseAmount = (userKycDto.getEligibilityAmount() != null
+									? userKycDto.getEligibilityAmount()
+									: loanEligibility.getEndAmount()) - oldEligibilityAmount;
 							double availableAmount = userCredit.getAvailableBalance();
 							userCredit.setAvailableBalance(availableAmount + increaseAmount);
 							utilizeUserCreditRepository.save(userCredit);

@@ -60,6 +60,9 @@
         private Boolean isApproved = false;
 
 
+        @OneToMany(mappedBy = "user")
+        private List<UtilizeUserCredit> utilizeUserCredits;
+
         @Enumerated(EnumType.STRING)
         private Role role;
 

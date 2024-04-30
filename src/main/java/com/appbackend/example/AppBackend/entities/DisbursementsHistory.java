@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -52,6 +53,9 @@ public class DisbursementsHistory {
     private LocalDateTime updateOn;
     private int createdBy;
     private LocalDateTime createdOn;
+
+//    @OneToMany(mappedBy = "history")
+//    private List<UtilizeUserCredit> utilizeUserCredits;
 
 
 

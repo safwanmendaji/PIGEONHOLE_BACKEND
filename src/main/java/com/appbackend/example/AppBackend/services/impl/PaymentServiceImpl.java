@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -36,6 +37,9 @@ public class PaymentServiceImpl implements PaymentService {
     private RestTemplate restTemplate;
     @Value("${payment.username}")
     private String username;
+
+//    @Autowired
+//    private
 
 
     @Value("${payment.password}")
@@ -63,7 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
            }
 
-           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId());
+           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(paymentDto.getUserId());
            if(userCredit == null) {
                ErrorDto errorDto = ErrorDto.builder()
                        .code(HttpStatus.BAD_REQUEST.value())
@@ -95,7 +99,9 @@ public class PaymentServiceImpl implements PaymentService {
                        .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
                return ResponseEntity.status(HttpStatus.OK).body(successDto);
            }else {
-               DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user , userCredit);
+               DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
+
+               disbursementsHistory = processDisbursements(paymentDto, user , userCredit , disbursementsHistory);
 
                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
@@ -113,8 +119,7 @@ public class PaymentServiceImpl implements PaymentService {
        }
     }
 
-    private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit) throws JsonProcessingException {
-        DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
+    private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
 
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
         HttpHeaders headers = getHttpHeaders();
@@ -138,16 +143,20 @@ public class PaymentServiceImpl implements PaymentService {
 
         disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
 
+        calculateUtilization(paymentDto, userCredit, disbursementsHistory, status);
+        return disbursementsHistory;
+    }
+
+    private void calculateUtilization(PaymentDto paymentDto, UtilizeUserCredit userUtilize, DisbursementsHistory disbursementsHistory, String status) {
         if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
-            double availableBalance = userCredit.getAvailableBalance();
+            double availableBalance = userUtilize.getAvailableBalance();
             UtilizeUserCredit userUtilizeCredit = new UtilizeUserCredit();
             userUtilizeCredit.setUtilizeBalance((double) paymentDto.getAmount());
             userUtilizeCredit.setAvailableBalance(availableBalance - paymentDto.getAmount());
             userUtilizeCredit.setHistory(disbursementsHistory);
-            userUtilizeCredit.setUserLoanEligibility(userCredit.getUserLoanEligibility());
+            userUtilizeCredit.setUserLoanEligibility(userUtilize.getUserLoanEligibility());
             utilizeUserCreditRepository.save(userUtilizeCredit);
         }
-        return disbursementsHistory;
     }
 
     private HttpHeaders getHttpHeaders() throws JsonProcessingException {
@@ -214,13 +223,28 @@ public class PaymentServiceImpl implements PaymentService {
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
 
+    private void processTravelDisbursement(ApprovalDeclineDto dto , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
+        PaymentDto paymentDto = buildPaymentDtoForTravel(dto , disbursementsHistory);
+        UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(disbursementsHistory.getUserId());
+        Optional<User> user = userRepository.findByid(disbursementsHistory.getUserId());
+        processDisbursements(paymentDto,  user.get(), userCredit , disbursementsHistory);
+    }
+
+    private PaymentDto buildPaymentDtoForTravel(ApprovalDeclineDto dto, DisbursementsHistory disbursementsHistory) {
+        PaymentDto paymentDto = new PaymentDto();
+        paymentDto.setAmount(disbursementsHistory.getAmount());
+        paymentDto.setReference(disbursementsHistory.getReferenceId());
+        paymentDto.setDisbursementsType(DisbursementsType.valueOf(disbursementsHistory.getDisbursementsType()));
+        return paymentDto;
+    }
+
     @Override
-    public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) {
+    public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) throws JsonProcessingException {
         DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
         if (entity != null) {
             if(dto.isApprove()){
                 entity.setApprovedForTravel(true);
-//                payment()
+                processTravelDisbursement(dto , entity);
             }else{
                 entity.setApprovedForTravel(false);
 
@@ -243,20 +267,53 @@ public class PaymentServiceImpl implements PaymentService {
     public ResponseEntity<?> getDisbursementHistoryOfUser(Authentication authentication) {
         User user = (User) authentication.getPrincipal();
         Integer userId = user.getId();
-        List<DisbursementsHistory> disbursementHistoryofUser = disbursementsRepository.findByUserId(userId);
-        Map<String, List<DisbursementsHistory>> groupedDisbursementHistory = disbursementHistoryofUser.stream()
+        List<DisbursementsHistory> disbursementHistoryOfUser = disbursementsRepository.findByUserId(userId);
+        Map<String, List<DisbursementsHistory>> groupedDisbursementHistory = disbursementHistoryOfUser.stream()
                 .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
         String message = user.getFirstName() + " Disbursement History";
         SuccessDto successDto = SuccessDto.builder()
                 .message(message)
                 .code(HttpStatus.OK.value())
-                .status("SUCESS")
+                .status("SUCCESS")
                 .data(groupedDisbursementHistory)
                 .build();
 
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
 
+    @Override
+    public ResponseEntity<?> getDisbursementStatus(String id) {
+
+        String status = checkDisbursementsCheckStatus(id , null);
+
+        SuccessDto successDto = SuccessDto.builder()
+                .message("message")
+                .code(HttpStatus.OK.value())
+                .status("SUCCESS")
+                .data(status)
+                .build();
+        return  ResponseEntity.status(HttpStatus.OK).body(successDto);
+    }
+    public void checkDisbursementStatusAndUpdate(DisbursementsHistory disbursementsHistory){
+        String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , null);
+        disbursementsHistory.setPaymentStatus(status);
+        disbursementsRepository.save(disbursementsHistory);
+        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
+            PaymentDto paymentDto  = new PaymentDto();
+            paymentDto.setAmount(disbursementsHistory.getAmount());
+            UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(disbursementsHistory.getUserId());
+            calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
+
+        }
+    }
+
+    @Scheduled(fixedRate = 150000)
+    public void updateDisbursementStatusAndUtilization(){
+        System.out.println("Run Schedule:::");
+        List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatus(DisbursementsStatus.PENDING.name());
+        System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
+        disbursementsHistoryList.forEach(this::checkDisbursementStatusAndUpdate);
+    }
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
         try {
@@ -352,8 +409,11 @@ public class PaymentServiceImpl implements PaymentService {
         Map<String, Object> paymentMap = new HashMap<>();
 
         try {
+            String account = user.getPhoneNumber();
+            account = account.replace("+256", "");
+            System.out.println("account==>>> " + account);
             paymentMap.put("type", "mm");
-            paymentMap.put("account", user.getPhoneNumber());
+            paymentMap.put("account", account);
             paymentMap.put("amount", paymentDto.getAmount());
             paymentMap.put("narration", paymentDto.getDisbursementsType().name());
             paymentMap.put("reference", paymentDto.getReference());

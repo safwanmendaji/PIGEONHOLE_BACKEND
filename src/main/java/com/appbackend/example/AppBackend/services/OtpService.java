@@ -144,7 +144,7 @@ public class OtpService {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, true);
-            mimeMessageHelper.setFrom("190320107124.ce.zishan.shaikh@gmail.com");
+            mimeMessageHelper.setFrom("devpigeonhole@gmail.com");
             mimeMessageHelper.setTo(to);
             mimeMessageHelper.setSubject(subject);
             mimeMessageHelper.setText(body);

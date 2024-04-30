@@ -13,5 +13,7 @@ public interface UtilizeUserCreditRepository extends JpaRepository<UtilizeUserCr
     List<UtilizeUserCredit> findByUserIdOrderByIdDesc(Integer id);
 
     @Query("SELECT u FROM UtilizeUserCredit u WHERE u.user.id = :userId ORDER BY u.id DESC")
-    UtilizeUserCredit findLatestByUserIdOrderByCreditScoreDescDesc(@Param("userId") Integer userId);
+    UtilizeUserCredit findLatestByUserIdOrderByCreditScoreDesc(@Param("userId") Integer userId);
+
+    UtilizeUserCredit findByHistoryId(Integer id);
 }
