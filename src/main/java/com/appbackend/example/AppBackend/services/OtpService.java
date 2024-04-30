@@ -17,6 +17,7 @@ import java.net.URL;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Base64;
 
 
@@ -47,6 +48,7 @@ public class OtpService {
     public String saveOtp(User user) {
         String otp = generateOtp();
         user.setOtp(otp);
+        System.out.println("Time --->> " + Instant.now());
         user.setOtpGeneratedTime(Instant.now());
         userRepository.save(user);
         return otp;
@@ -79,30 +81,16 @@ public class OtpService {
     }
 
 
-    public String verifyOtp(String reqUserOtp, User savedUser) {
-
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-//        UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getUserEmail());
-
-
-//        System.out.println(reqUserEmail.equals(authentication.getName()));
-//        System.out.println("reqUserEmail"+reqUserEmail);
-//        System.out.println("authuser"+authentication.getName());
-
-//        if(reqUserEmail.equals(savedUser.getUsername())){
-
-//            User savedUser=userRepository.findByEmail(reqUserEmail).get();
-
+    public String verifyOtp(String reqUserOtp, User savedUser) throws Exception {
         if (Duration.between(savedUser.getOtpGeneratedTime(), Instant.now()).getSeconds() < 120) {
             if (reqUserOtp.equals(savedUser.getOtp())) {
                 savedUser.setLoginTimeStamp(Instant.now());
                 return "you are logged in successfully";
             } else {
-                throw new RuntimeException("otp is Invalid ");
+                throw new Exception("otp is Invalid ");
             }
         } else {
-            throw new RuntimeException("your one-time password (otp) has expired");
+            throw new Exception("your one-time password (otp) has expired");
         }
 
 //        }

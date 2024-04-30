@@ -1,28 +1,47 @@
 package com.appbackend.example.AppBackend.services.AdminServices;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
+import com.appbackend.example.AppBackend.entities.LoanEligibility;
+import com.appbackend.example.AppBackend.models.ErrorDto;
+import com.appbackend.example.AppBackend.models.UserKYCDto;
+import com.appbackend.example.AppBackend.repositories.LoanEligibilityRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.CreditScoreDTO;
 import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
+import com.appbackend.example.AppBackend.repositories.KycCalculationDetailsRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAuthority('ADMIN')")
 public class CreditScoreService {
 
     @Autowired
     CreditScoreRepository creditScoreRepository;
+    
+    
+    @Autowired
+    KycCalculationDetailsRepository kycCalculationDetailsRepository;
+
+    @Autowired
+    LoanEligibilityRepository loanEligibilityRepository;
 
     @Value("${credit.offer.per.level}")
     private String creditOfferPerLevel;
@@ -171,11 +190,11 @@ public class CreditScoreService {
         System.out.println(" available offer " + availableOffer);
 
 
-        String blacklistedObj = objectMaker(blacklistedScore, blacklistedWeight, blacklistedExposure);
-        String departmentObj = objectMaker(departmentScore, departmentWeight, departmentExposure);
-        String salaryScaleObj = objectMaker(salaryScaleScore, salaryScaleWeight, salaryScaleExposure);
-        String priorityClientObj = objectMaker(priorityClientScore, priorityClientWeight, priorityClientExposure);
-        String securityObj = objectMaker(securityScore, securityWeight, securityClientExposure);
+        String blacklistedObj = makeCreditScoreOjb(blacklistedScore, blacklistedWeight, blacklistedExposure ,0);
+        String departmentObj = makeCreditScoreOjb(departmentScore, departmentWeight, departmentExposure ,0);
+        String salaryScaleObj = makeCreditScoreOjb(salaryScaleScore, salaryScaleWeight, salaryScaleExposure ,0);
+        String priorityClientObj = makeCreditScoreOjb(priorityClientScore, priorityClientWeight, priorityClientExposure,0);
+        String securityObj = makeCreditScoreOjb(securityScore, securityWeight, securityClientExposure,0);
 
 
         existingcreditScore.setAverageCreditScoreValue(averageCreditScoreValue);
@@ -190,16 +209,6 @@ public class CreditScoreService {
         existingcreditScore.setTotalWeight(totalWeight);
 
 
-//        CreditScore creditScore = CreditScore.builder()
-//                .user(user)
-//                .id(user.getId())
-//                .age(existingcreditScore.getAge())
-//                .blacklisted(String.valueOf(blacklistedObj))
-//                .workPlaceDeartment(String.valueOf(departmentObj))
-//                .salaryScale(String.valueOf(salaryScaleObj))
-//                .priorityClient(String.valueOf(priorityClientObj))
-//                .security(String.valueOf(securityObj))
-//                .build();
 
         System.out.println(blacklistedObj);
         System.out.println(departmentObj);
@@ -213,13 +222,14 @@ public class CreditScoreService {
 
     }
 
-    public String objectMaker(Object score, int weight, float exposure) {
+    public static String makeCreditScoreOjb(Object score, int weight, Object exposure , int kycCalculationId) {
 
         Map<String, Object> objMap = new HashMap<>();
 
         objMap.put("weight", weight);
         objMap.put("score", score);
         objMap.put("exposure", exposure);
+        objMap.put("kycCalculationId", kycCalculationId);
 
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -284,8 +294,8 @@ public class CreditScoreService {
     public CreditScoreDTO findByUserId(Integer userId) {
         CreditScore creditScore = creditScoreRepository.findCreditScoreById(userId);
         long offerPerLevel = Long.parseLong(creditOfferPerLevel);
-
-        double availableOffer = ((double) creditScore.getTotalExposure() / 100) * offerPerLevel;
+        double exposure = creditScore.getTotalExposure() != null ? creditScore.getTotalExposure() : 0.0;
+        double availableOffer = ((double) exposure / 100) * offerPerLevel;
 
         if (creditScore != null) {
             CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
@@ -315,50 +325,178 @@ public class CreditScoreService {
     }
 
 
-    public CreditScoreDTO getCreditScore(CreditScoreDtoDemo creditScoreDtoDemo, Integer userId) {
+    public CreditScoreDTO getCreditScore(UserKYCDto creditScoreDtoDemo) {
+    try {
+        Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(creditScoreDtoDemo.getUserId());
 
-        CreditScore creditScore  = creditScoreRepository.findByUserId(userId);
+        if (optionalCreditScore.isPresent()) {
+            CreditScore creditScore = optionalCreditScore.get();
 
-//        if (user != null) {
+            List<KycCalculationDetails> allDetails = kycCalculationDetailsRepository.findAll();
+            Map<String, List<KycCalculationDetails>> groupedByWorkplace = allDetails.stream()
+                    .collect(Collectors.groupingBy(KycCalculationDetails::getWorkPlaceName));
 
-        double blacklistedCreditScore = calculateNegativeCreditScore(creditScoreDtoDemo.getBlacklisted(), -10);
-        double workPlaceDepartmentCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getWorkPlaceDepartment(), 5);
-        double occupationCreditScore = calculateCommonCreditScore(creditScoreDtoDemo.getOccupation(), 1);
-        double amountInArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getAmountInArrears(), -10);
-        double daysInArrears = calculateCommonCreditScore(creditScoreDtoDemo.getDaysInArreas(), 10);
-        double rescheduleHistory = calculateCommonCreditScore(creditScoreDtoDemo.getRescheduleHistory(), 1);
-        double priorityClient = calculateCommonCreditScore(creditScoreDtoDemo.getPriorityClient(), 15);
-        double security = calculateCommonCreditScore(creditScoreDtoDemo.getSecurity(), 1);
-        double loanHistoryLoansWithArrears = calculateNegativeCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithArrears(), -60);
-        double loanHistoryLoansWithoutArrears = calculateCommonCreditScore(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears(), 60);
+            int totalCreditScore =0;
 
-        double ageScore = findOldExposureValue(creditScore.getAge());
-        double genScore = findOldExposureValue(creditScore.getGender());
-        double kinScore = findOldExposureValue(creditScore.getNextOfKinType());
+            Double blacklistedCreditScore = 0.0;
+            Double workPlaceDepartmentCreditScore = 0.0;
+            Double occupationCreditScore = 0.0;
+            Double amountInArrears = 0.0;
+            Double daysInArrears = 0.0;
+            Double rescheduleHistory = 0.0;
+            Double priorityClient =0.0;
+            Double security= 0.0;
+            Double loanHistoryLoansWithArrears = 0.0;
+            Double loanHistoryLoansWithoutArrears = 0.0;
 
 
-        int totalCreditScore = creditScoreDtoDemo.getBlacklisted() + creditScoreDtoDemo.getWorkPlaceDepartment()
-                + creditScoreDtoDemo.getOccupation() + creditScoreDtoDemo.getAmountInArrears() + creditScoreDtoDemo.getDaysInArreas() + creditScoreDtoDemo.getRescheduleHistory() +
-                creditScoreDtoDemo.getPriorityClient() + creditScoreDtoDemo.getSecurity() + creditScoreDtoDemo.getLoanHistoryLoansWithArrears() +
-                creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
+            String blacklistedCreditScoreString = "";
+            String workPlaceDepartmentCreditScoreString="";
+            String occupationCreditScoreString = "" ;
+            String amountInArrearsString = "" ;
+            String daysInArrearsString = "" ;
+            String rescheduleHistoryString = "";
+            String priorityClientString = "";
+            String securityString = "";
+            String loanHistoryLoansWithArrearsString="";
+            String loanHistoryLoansWithoutArrearsString ="";
 
-        float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
-                                        occupationCreditScore + amountInArrears + daysInArrears +
-                                        rescheduleHistory + priorityClient + security +
-                                        loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+            if(creditScoreDtoDemo.getBlacklisted() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("BLACKLISTED");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getBlacklisted());
+                blacklistedCreditScore = calculateNegativeCreditScore(score, -10);
+                blacklistedCreditScoreString = makeCreditScoreOjb(score, -10, blacklistedCreditScore , creditScoreDtoDemo.getBlacklisted());
+                totalCreditScore += score;
+            }
 
-        creditScore.setTotalCreditScore(totalCreditScore);
-        creditScore.setTotalExposure(totalExposure);
+            if(creditScoreDtoDemo.getWorkPlaceDepartment() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("DEPARTMENTS");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getWorkPlaceDepartment());
+                workPlaceDepartmentCreditScore = calculateCommonCreditScore(score, 5);
+                workPlaceDepartmentCreditScoreString = makeCreditScoreOjb(score, 5, workPlaceDepartmentCreditScore , creditScoreDtoDemo.getWorkPlaceDepartment());
+                totalCreditScore += score;
+            }
 
-        creditScoreRepository.save(creditScore);
+            if(creditScoreDtoDemo.getOccupation() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("OCCUPATION");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getOccupation());
+                occupationCreditScore = calculateCommonCreditScore(score, 1);
+                occupationCreditScoreString = makeCreditScoreOjb(score, 1, occupationCreditScore, creditScoreDtoDemo.getOccupation());
+                totalCreditScore += score;
+            }
 
-        CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
-        return creditScoreDTO;
-//        } else {
-//            return null;
-//        }
+            if(creditScoreDtoDemo.getAmountInArrears() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("ARREARS AMOUNT (DEFAULT)");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getAmountInArrears());
+                amountInArrears = calculateNegativeCreditScore(score, -10);
+                amountInArrearsString = makeCreditScoreOjb(score, -10, amountInArrears , creditScoreDtoDemo.getAmountInArrears());
+                totalCreditScore += score;
+            }
+
+            if(creditScoreDtoDemo.getDaysInArreas() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("DAYS IN ARREARS (PAYMENT HISTORY)");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getDaysInArreas());
+                daysInArrears = calculateCommonCreditScore(score, 10);
+                daysInArrearsString = makeCreditScoreOjb(score, 10, daysInArrears , creditScoreDtoDemo.getDaysInArreas());
+                totalCreditScore += score;
+            }
+
+            if(creditScoreDtoDemo.getRescheduleHistory() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("RESCHEDULE");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getRescheduleHistory());
+                rescheduleHistory = calculateCommonCreditScore(score, 1);
+                rescheduleHistoryString = makeCreditScoreOjb(score, 1, rescheduleHistory , creditScoreDtoDemo.getRescheduleHistory());
+                totalCreditScore += score;
+            }
+
+            if(creditScoreDtoDemo.getPriorityClient() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("PRIORITY CLIENT");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getPriorityClient());
+
+                priorityClient = calculateCommonCreditScore(score, 15);
+                priorityClientString = makeCreditScoreOjb(score, 15, priorityClient , creditScoreDtoDemo.getPriorityClient());
+                totalCreditScore += score;
+
+            }
+
+            if(creditScoreDtoDemo.getSecurity() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("SECURITY");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getSecurity());
+
+                security = calculateCommonCreditScore(score, 1);
+                securityString = makeCreditScoreOjb(score, 1, security , creditScoreDtoDemo.getSecurity());
+                totalCreditScore += score;
+
+            }
+
+            if(creditScoreDtoDemo.getLoanHistoryLoansWithArrears() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("LOAN HISTORY (COMPLETED LOANS WITH ARREARS) (NEGATIVE)");
+                int score  = getScore(kycCalculationDetails, creditScoreDtoDemo.getLoanHistoryLoansWithArrears());
+                loanHistoryLoansWithArrears = calculateNegativeCreditScore(score, -60);
+                loanHistoryLoansWithArrearsString = makeCreditScoreOjb(score, -60, loanHistoryLoansWithArrears , creditScoreDtoDemo.getLoanHistoryLoansWithArrears());
+                totalCreditScore += score;
+
+            }
+
+
+            if(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() != null) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("LOAN HISTORY (COMPLETED LOANS WITH OUT ARREARS) (POSITIVE)");
+                int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears());
+                loanHistoryLoansWithoutArrears = calculateCommonCreditScore(score, 60);
+                loanHistoryLoansWithoutArrearsString = makeCreditScoreOjb(score, 60, loanHistoryLoansWithoutArrears , creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears());
+                totalCreditScore += score;
+
+            }
+
+            double ageScore = findOldExposureValue(creditScore.getAge());
+            double genScore = findOldExposureValue(creditScore.getGender());
+            double kinScore = findOldExposureValue(creditScore.getNextOfKinType());
+
+            totalCreditScore = totalCreditScore + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
+
+            float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
+                    occupationCreditScore + amountInArrears + daysInArrears +
+                    rescheduleHistory + priorityClient + security +
+                    loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+
+
+            creditScore.setTotalCreditScore(totalCreditScore);
+            creditScore.setTotalExposure(totalExposure);
+
+            creditScore.setBlacklisted(blacklistedCreditScoreString);
+            creditScore.setSecurity(securityString);
+            creditScore.setAmountInArrears(amountInArrearsString);
+            creditScore.setLoanHistoryLoansWithArrears(loanHistoryLoansWithArrearsString);
+            creditScore.setLoanHistoryLoansWithOutArrears(loanHistoryLoansWithoutArrearsString);
+            creditScore.setOccupation(occupationCreditScoreString);
+            creditScore.setWorkPlaceDepartment(workPlaceDepartmentCreditScoreString);
+            creditScore.setDaysInArrears(daysInArrearsString);
+            creditScore.setRescheduledHistory(rescheduleHistoryString);
+            creditScore.setPriorityClient(priorityClientString);
+
+            creditScoreRepository.save(creditScore);
+
+            CreditScoreDTO creditScoreDTO = new CreditScoreDTO();
+            return creditScoreDTO;
+        } else {
+            return null;
+        }
+    }catch (Exception e){
+        e.printStackTrace();
+         new Exception("SOME THING WENT WRONG IN UPDATE CREDIT SCORE.");
+
+    }
+    return null;
     }
 
+    private static int getScore(List<KycCalculationDetails> kycCalculationDetails, int creditScoreDtoDemo) {
+        int score = kycCalculationDetails.stream()
+                .filter(calculationDetails -> calculationDetails.getId() == creditScoreDtoDemo)
+                .mapToInt(KycCalculationDetails::getScore)
+                .findFirst()
+                .orElse(0);
+        return score;
+    }
 
 
     private double findOldExposureValue(String value){
@@ -377,7 +515,7 @@ public class CreditScoreService {
 
     }
 
-    private int findOldScoreValue(String value){
+    public static int findOldScoreValue(String value){
         try {
             ObjectMapper mapper = new ObjectMapper();
 
@@ -392,6 +530,29 @@ public class CreditScoreService {
         }
 
     }
+
+
+    public static int findOldKycCalculationIdValue(String value){
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            JsonNode root = mapper.readTree(value);
+            int kycCalculationId = 0;
+            if (root.has("kycCalculationId")) {
+                // Retrieve the value associated with the "kycCalculationId" key
+                kycCalculationId = root.get("kycCalculationId").asInt();
+            }
+            return kycCalculationId;
+        }catch (Exception e){
+            e.printStackTrace();
+            return 0;
+        }
+
+    }
+
+   
+
+    
 }
 
 

@@ -4,6 +4,8 @@ package com.appbackend.example.AppBackend.services;
 import com.appbackend.example.AppBackend.entities.CreditScore;
 import com.appbackend.example.AppBackend.entities.KYC;
 import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.entities.UtilizeUserCredit;
+import com.appbackend.example.AppBackend.enums.KycStatus;
 import com.appbackend.example.AppBackend.models.KYCDataResDto;
 //import com.appbackend.example.AppBackend.models.KYCDto;
 
@@ -11,9 +13,12 @@ import com.appbackend.example.AppBackend.models.KYCDocData;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
+import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepository;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +29,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -41,6 +48,9 @@ public class KYCService {
 
     @Autowired
     CreditScoreRepository creditScoreRepository;
+
+    @Autowired
+    private UtilizeUserCreditRepository utilizeUserCreditRepository;
 
     @Transactional
     public KYCDataResDto saveUserKYC(KYCDataResDto kycRequest, MultipartFile documentData, MultipartFile userImage, MultipartFile digitalSignature) throws IOException {
@@ -102,6 +112,9 @@ public class KYCService {
             if (userImage != null && existingKyc.getUserImage() == null) {
                 existingKyc.setUserImage(ImageUtils.compressImage(userImage.getBytes()));
             }
+
+            existingKyc.setStatus(String.valueOf(KycStatus.PENDING));
+
 
 
             System.out.println(calculateAge(kycRequest.getDob()));
@@ -204,6 +217,16 @@ public class KYCService {
 
     }
 
+
+    public ResponseEntity<?> getKycUserData(Authentication authentication){
+//        User user = (User) authentication.getPrincipal();
+//
+//
+//        return new ResponseEntity<>(kycService.getUserKYCDataById(user.getId(), authentication)
+//                .orElseThrow(() -> new RuntimeException("KYC OF USER NOT FOUND")), HttpStatus.OK);
+        return null;
+    }
+
     private CreditScore getCreditScore(KYCDataResDto kycRequest, User user, String ageFromKYCRequest) {
         int ageCreditsScore = creditScoreService.ageCreditScore(Integer.parseInt(ageFromKYCRequest));
         int genderCreditScore = creditScoreService.genderCreditScore(kycRequest.getGender());
@@ -214,9 +237,9 @@ public class KYCService {
         double kinCreditScoreCalculated = creditScoreService.calculateCommonCreditScore(kinCreditScore , 5);
 
 
-        String ageCreditObject = creditScoreService.objectMaker(ageCreditsScore, 1, (float ) ageCreditScoreCalculated);
-        String genderCreditObject = creditScoreService.objectMaker(genderCreditScore, 1, (float )  genderCreditScoreCalculated);
-        String kinCreditObject = creditScoreService.objectMaker(kinCreditScore, 5, (float ) kinCreditScoreCalculated);
+        String ageCreditObject = creditScoreService.makeCreditScoreOjb(ageCreditsScore, 1, (float ) ageCreditScoreCalculated,0);
+        String genderCreditObject = creditScoreService.makeCreditScoreOjb(genderCreditScore, 1, (float )  genderCreditScoreCalculated,0);
+        String kinCreditObject = creditScoreService.makeCreditScoreOjb(kinCreditScore, 5, (float ) kinCreditScoreCalculated,0);
 
 
 
@@ -302,11 +325,23 @@ public class KYCService {
                     .firstName(kyc.getUser().getFirstName())
                     .lastName(kyc.getUser().getLastName())
                     .workId(kyc.getId())
+                    .userId(kyc.getUser().getId())
+
                     .isUserImageSubmitted(kyc.getUserImage() != null)
                     .isDocumentDataSubmitted(kyc.getDocumentData() != null)
                     .isDigitalSignatureSubmitted(kyc.getDigitalSignature() != null)
                     .build();
 
+            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(kyc.getUser().getId());
+            if(userCredit != null){
+                Map<String , Object> map = new HashMap<>();
+                long eligibleAmount = userCredit.getUserLoanEligibility().getEligibilityAmount();
+                double utilizeAmount = userCredit.getUtilizeBalance() != null ? userCredit.getUtilizeBalance() : 0.0;
+                map.put("eligibleAmount" , eligibleAmount);
+                map.put("utilizeAmount" , utilizeAmount);
+                map.put("availableAmount" , eligibleAmount - utilizeAmount);
+                kycResponse.setLoanAmountInfo(map);
+            }
 
             return Optional.ofNullable(kycResponse);
 
@@ -316,7 +351,7 @@ public class KYCService {
 
             User kycUser = (User) authentication.getPrincipal();
 
-            //            User kycUser = userRepository.getReferenceById(id);
+
 
             KYCDataResDto kycResponse = KYCDataResDto.builder()
                     .firstName(kycUser.getFirstName())
@@ -345,5 +380,12 @@ public class KYCService {
 
         return String.valueOf(age);
     }
+
+	public ResponseEntity<?> updateKYC(int id) {
+		
+	
+		
+		return null;
+	}
 
 }

@@ -55,6 +55,10 @@
 
         @Column(unique = true)
         private String phoneNumber;
+        
+        @Column(columnDefinition = "boolean default false",name="is_approved")
+        private Boolean isApproved = false;
+
 
         @Enumerated(EnumType.STRING)
         private Role role;
@@ -63,6 +67,7 @@
     //    public void setId(Integer id) {
     //        this.id = id;
     //    }
+
 
         @Override
         public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -81,7 +86,7 @@
             return email;
         }
 
-        public String getSPhoneNumber() {
+        public String getPhoneNumber() {
             return phoneNumber;
         }
 
@@ -109,6 +114,8 @@
         public boolean isEnabled() {
             return true;
         }
+        
+        
 
         public void setRoleByInput(int input){
             if(input==1){

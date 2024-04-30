@@ -1,5 +1,22 @@
 package com.appbackend.example.AppBackend.config;
 
+import com.appbackend.example.AppBackend.entities.KYC;
+import com.appbackend.example.AppBackend.entities.RefreshToken;
+import com.appbackend.example.AppBackend.entities.Role;
+import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.models.*;
+import com.appbackend.example.AppBackend.models.ForgotPasswordModel.ChangePassword;
+import com.appbackend.example.AppBackend.models.ForgotPasswordModel.FpOtpReq;
+import com.appbackend.example.AppBackend.models.ForgotPasswordModel.FpOtpVerify;
+import com.appbackend.example.AppBackend.repositories.KYCRepository;
+import com.appbackend.example.AppBackend.repositories.RefreshTokenRepository;
+import com.appbackend.example.AppBackend.repositories.UserRepository;
+import com.appbackend.example.AppBackend.services.OtpService;
+import com.appbackend.example.AppBackend.services.RefreshTokenService;
+import com.appbackend.example.AppBackend.services.UserService;
+import com.appbackend.example.AppBackend.utils.ImageUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -52,376 +69,299 @@ import com.appbackend.example.AppBackend.utils.ImageUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-//import java.util.concurrent.TimeUnit;
-
-
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
-    @Autowired
-    RefreshTokenService refreshTokenService;
-    @Autowired
-    UserRepository userRepository;
-    @Autowired
-    RefreshTokenRepository refreshTokenRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+	@Autowired
+	RefreshTokenService refreshTokenService;
+	@Autowired
+	UserRepository userRepository;
+	@Autowired
+	RefreshTokenRepository refreshTokenRepository;
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private UserDetailsService userDetailsService;
+
+	@Autowired
+	private KYCRepository kycRepository;
+
+	@Autowired
+	private UserService userService;
+
+	@Autowired
+	private AuthenticationManager authenticationManager;
+
+	@Autowired
+	private OtpService emailOtpService;
+
+	@Autowired
+	JwtHelper jwtHelper;
+
+	private Logger logger = LoggerFactory.getLogger(AuthController.class);
+
+	private Authentication authentication;
+
+	@PostMapping("/login")
+	public ResponseEntity<?> login(@RequestBody JwtRequest request) {
+		try {
+			UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
+			User user = (User) userDetails;
+
+			if (user.getRole().equals(Role.USER) && user.getIsApproved() != null && !user.getIsApproved()) {
+				ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.FORBIDDEN.value()).status("ERROR")
+						.message("YOUR PROFILE IS NOT APPROVED BY ADMIN").build();
+				return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+			}
+
+			this.doAuthenticate(request.getUserName(), request.getPassword());
+			emailOtpService.sendVerificationOtp(user, request.getUserName());
+
+			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS")
+					.message("OTP has been sent to " + request.getUserName()).build();
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
+		} catch (UsernameNotFoundException e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR")
+					.message("User with email " + request.getUserName() + " is not found.").build();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+		}
+	}
+
+	@Async
+	@PostMapping("/verifyotp")
+	public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest,
+			@CurrentSecurityContext SecurityContext context) {
+		try {
+			UserDetails userDetails = null;
+			User user = null;
+
+			if (otpRequest.getEmail().contains("@")) {
+				userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+				user = userRepository.findByEmail(otpRequest.getEmail()).orElseThrow(
+						() -> new UsernameNotFoundException("USER NOT FOUND FOR EMAIL: " + otpRequest.getEmail()));
+			} else {
+				userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
+				user = userRepository.findByPhoneNumber(otpRequest.getEmail())
+						.orElseThrow(() -> new UsernameNotFoundException(
+								"USER NOT  FOUND FOR PHONE NUMBER: " + otpRequest.getEmail()));
+			}
+
+			emailOtpService.verifyOtp(otpRequest.getOtp(), user);
+
+			RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
+			String token = jwtHelper.generateToken(userDetails);
+
+			JwtResponse response = JwtResponse.builder().jwtToken(token)
+					.refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername())
+					.build();
+
+			return new ResponseEntity<>(response, HttpStatus.OK);
+		} catch (UsernameNotFoundException e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+		} catch (Exception e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		}
+	}
+
+	@PostMapping("/forgotPasswordOtp")
+	public ResponseEntity<?> forgotPassword(@RequestBody FpOtpReq fpOtpReq) {
+		try {
+			UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpReq.getEmail());
+			User user = userRepository.findByEmail(fpOtpReq.getEmail()).get();
 
-    @Autowired
-    private UserDetailsService userDetailsService;
+			emailOtpService.sendVerificationOtp((User) userDetails, fpOtpReq.getEmail());
 
-    @Autowired
-    private KYCRepository kycRepository;
+			String response = "OTP HAS BEEN SEND TO " + " " + user.getEmail();
+			SuccessDto successDto = SuccessDto.builder().message(response).code(HttpStatus.OK.value()).status("SUCCESS")
+					.build();
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
+		} catch (Exception e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		}
 
-//    @Autowired
-//    private RegisterRequest registerRequest;
+	}
 
-    @Autowired
-    private UserService userService;
+	@PostMapping("/forgotPasswordOtpVerify")
+	public ResponseEntity<?> forgotPasswordOtpVerify(@RequestBody FpOtpVerify fpOtpVerify) {
+		try {
+			UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpVerify.getEmail());
+			User user = userRepository.findByEmail(fpOtpVerify.getEmail()).get();
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+			String response = emailOtpService.verifyFpwOtp(fpOtpVerify.getOtp(), user);
 
-    @Autowired
-    private OtpService emailOtpService;
+			System.out.println(response);
 
+			SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message(response).code(HttpStatus.OK.value())
+					.build();
 
-    @Autowired
-    JwtHelper jwtHelper;
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
-    private Logger logger = LoggerFactory.getLogger(AuthController.class);
+		} catch (Exception e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		}
 
-    private Authentication authentication;
+	}
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody JwtRequest request) {
-        try {
+	@PostMapping("/changePassword")
+	public ResponseEntity<?> changePassword(@RequestBody ChangePassword changePassword) {
+		try {
+			UserDetails userDetails = userDetailsService.loadUserByUsername(changePassword.getEmail());
+			User user = userRepository.findByEmail(changePassword.getEmail()).get();
 
-            System.out.println("Name==>> " + request.getUserName());
+			user.setPassword(passwordEncoder.encode(changePassword.getPassword()));
 
-            UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
-            System.out.println("Name==>> " + userDetails.getUsername());
+			userRepository.save(user);
 
-            this.doAuthenticate(request.getUserName(), request.getPassword());
+			SuccessDto successDto = SuccessDto.builder().status("SUCCESS")
+					.message("YOUR PASSWORD HAS BEEN CHANGED SUCCESSFULLY").code(HttpStatus.OK.value()).build();
 
-//        Here saveOtp method  of emailOtpService will return an otp string
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
-//            String otp = emailOtpService.saveOtp((User) userDetails);
-            emailOtpService.sendVerificationOtp((User) userDetails , request.getUserName());
+		} catch (Exception e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		}
 
+	}
 
-//        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
-//
-//
-//        String token = this.jwtHelper.generateToken(userDetails);
-//
-//
-//        JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
+	@PostMapping(value = "/register", consumes = { MediaType.APPLICATION_JSON_VALUE,
+			MediaType.MULTIPART_FORM_DATA_VALUE })
+	public ResponseEntity<?> register(
+			@RequestParam(value = "registerRequest", required = true) String registerRequestString,
+			@RequestParam(value = "documentData", required = false) MultipartFile documentData)
+			throws JsonProcessingException {
 
+		ObjectMapper mapper = new ObjectMapper();
+		RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
 
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        Object user =this.authentication.getName();
+		try {
 
-//        System.out.println(user);
+			if (registerRequest.getRole() < 1 && registerRequest.getRole() > 2) {
+				throw new Exception("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
+			}
 
-            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS").message("OTP HAS BEEN SEND TO " + authentication.getName()).build();
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-        } catch (UsernameNotFoundException e) {
+			if (registerRequest.getEmail().trim().isEmpty()) {
+				throw new Exception("Email Field must not be null");
+			}
 
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("USER WITH EMAIL " + request.getUserName() + " IS NOT FOUND ").build();
+			if (registerRequest.getId() == null) {
+				throw new Exception("ID Field must not be null");
+			}
 
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-        }
-    }
+			Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
+			Optional<User> duplicatePhoneUser = userService.getUserByPhone(registerRequest.getEmail());
 
+			Optional<User> duplicateIdUser = userService.getUserById(registerRequest.getId());
 
-    @Async
-    @PostMapping("/verifyotp")
-    public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest, @CurrentSecurityContext SecurityContext context) {
-//            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+			if (duplicateEmailUser.isPresent()) {
+				throw new DuplicateUserException("USER WITH THIS EMAIL ID ALREADY EXISTS");
+			}
 
-//            Principal principal ;
-//
-//            System.out.println(principal.getName());
-//            System.out.println("This is ");
-//            System.out.println(context.getAuthentication().getName());
-        try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
-            User user = userRepository.findByEmail(otpRequest.getEmail()).get();
+			if (duplicateIdUser.isPresent()) {
+				throw new DuplicateUserException("USER WITH THIS  ID ALREADY EXISTS");
+			}
 
+			if (duplicatePhoneUser.isPresent()) {
+				throw new DuplicateUserException("USER WITH THIS MOBILE ALREADY EXISTS");
+			}
 
-            emailOtpService.verifyOtp(otpRequest.otp, user);
+			User user = User.builder().id(registerRequest.getId()).firstName(registerRequest.getFirstname())
+					.lastName(registerRequest.getLastname()).email(registerRequest.getEmail())
+					.password(passwordEncoder.encode(registerRequest.getPassword()))
+					.phoneNumber(registerRequest.getPhoneNumber()).build();
 
+			user.setRoleByInput(registerRequest.getRole());
+			user.setIsApproved(false);
+				userRepository.save(user);
 
-            System.out.println(emailOtpService.verifyOtp(otpRequest.otp, user));
+			if (registerRequest.getRole() == 2) {
 
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
+				if (documentData == null) {
+					throw new Exception("WORK ID DOCUMENT IS REQUIRED KINDLY UPLOAD IT");
+				} else {
+					KYC kyc = KYC.builder().user(user).id(user.getId())
+							.documentData(ImageUtils.compressImage(documentData.getBytes())).build();
 
+					kycRepository.save(kyc);
 
-//            CompletableFuture<String> jwtfuture = CompletableFuture.supplyAsync(() -> {
-//                System.out.println("generating jwt");
-//                return this.jwtHelper.generateToken(userDetails);
-//            });
-//
-//            ResponseEntity<?> responseEntity = jwtfuture.thenApply(jwt -> {
-//                JwtResponse response1 = JwtResponse.builder().jwtToken(jwt)
-//                        .refreshTokenString(refreshToken.getRefreshTokenString())
-//                        .username(userDetails.getUsername())
-//                        .build();
-//
-//                System.out.println("Sending JWT: " + jwt);
-//                return new ResponseEntity<>(response1, HttpStatus.OK);
-//            }).exceptionally(error -> {
-//                System.out.println("Error generating JWT: " + error.getMessage());
-//                return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-//            }).join();
-//
-//            CompletableFuture.runAsync(() -> {
-//
-//                long startTime = System.currentTimeMillis();
-//                long endTime = startTime + 10000; // Delay for 10 second
-//                while (System.currentTimeMillis() < endTime) {
-//                    // Wait for 1 second
-//                }
-//                System.out.println("Hello World!");
-//
-//            });
+				}
+			}
 
-            String token = this.jwtHelper.generateToken(userDetails);
+			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
+					.message("USER  HAVE BEEN SUCCESSFULLY REGISTERED").build();
 
+			return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
-            JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
+		} catch (DuplicateUserException e) {
 
+			String errorResponse = e.getMessage();
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.CONFLICT.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
-//            return responseEntity;
+		} catch (Exception e) {
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+					.message(e.getMessage()).build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		}
 
+	}
 
-//            return  new ResponseEntity<>("You are successfully logged in",HttpStatus.OK);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
+	@PostMapping("/refresh")
+	public ResponseEntity<?> refreshJWTtoken(@RequestBody RefreshTokenRequest request) {
 
+		try {
+			RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshTokenString());
 
-    }
+			User user = refreshToken.getUser();
 
+			JwtResponse jwtResponse = JwtResponse.builder().refreshTokenString(refreshToken.getRefreshTokenString())
+					.jwtToken(jwtHelper.generateToken(user)).username(user.getUsername()).build();
 
-    @PostMapping("/forgotPasswordOtp")
-    public ResponseEntity<?> forgotPassword(@RequestBody FpOtpReq fpOtpReq) {
-//
-        try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpReq.getEmail());
-            User user = userRepository.findByEmail(fpOtpReq.getEmail()).get();
+			return new ResponseEntity<>(jwtResponse, HttpStatus.OK);
 
+		} catch (Exception e) {
 
-//            String otp = emailOtpService.saveOtp((User) userDetails);
-            emailOtpService.sendVerificationOtp((User) userDetails , fpOtpReq.getEmail());
+			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.UNAUTHORIZED.value()).status("ERROR")
+					.message("REFRESH TOKEN HAS BEEN EXPIRED").build();
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
 
+		}
 
-            String response = "OTP HAS BEEN SEND TO " + " " + user.getEmail();
-            SuccessDto successDto = SuccessDto.builder().message(response).code(HttpStatus.OK.value()).status("SUCCESS").build();
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+	}
 
+	public void doAuthenticate(String email, String password) {
 
-//            return  new ResponseEntity<>("You are successfully logged in",HttpStatus.OK);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
+		UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, password);
+		try {
+			authenticationManager.authenticate(authentication);
+			SecurityContextHolder.getContext().setAuthentication(authentication);
+			this.authentication = authentication;
 
+		} catch (BadCredentialsException e) {
+			throw new BadCredentialsException("INVALID USERNAME OR PASSWORD");
 
-    }
+		}
 
-    @PostMapping("/forgotPasswordOtpVerify")
-    public ResponseEntity<?> forgotPasswordOtpVerify(@RequestBody FpOtpVerify fpOtpVerify) {
-//
-        try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpVerify.getEmail());
-            User user = userRepository.findByEmail(fpOtpVerify.getEmail()).get();
+	}
 
+	@ExceptionHandler(BadCredentialsException.class)
+	public ResponseEntity exceptionHandler() {
 
-            String response = emailOtpService.verifyFpwOtp(fpOtpVerify.getOtp(), user);
-
-            System.out.println(response);
-
-            SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message(response).code(HttpStatus.OK.value()).build();
-
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-
-
-//            return  new ResponseEntity<>("You are successfully logged in",HttpStatus.OK);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
-
-    }
-
-    @PostMapping("/changePassword")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePassword changePassword) {
-//
-        try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(changePassword.getEmail());
-            User user = userRepository.findByEmail(changePassword.getEmail()).get();
-
-
-            user.setPassword(passwordEncoder.encode(changePassword.getPassword()));
-
-            userRepository.save(user);
-
-
-            SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message("YOUR PASSWORD HAS BEEN CHANGED SUCCESSFULLY").code(HttpStatus.OK.value()).build();
-
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-
-
-//            return  new ResponseEntity<>("You are successfully logged in",HttpStatus.OK);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
-
-    }
-
-
-    @PostMapping(value = "/register", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
-    public ResponseEntity<?> register(@RequestParam(value = "registerRequest", required = true) String registerRequestString, @RequestParam(value = "documentData", required = false) MultipartFile documentData) throws JsonProcessingException {
-
-
-//        System.out.println("DOC DATA IS HERE ------>  "+documentData);
-
-        ObjectMapper mapper = new ObjectMapper();
-        RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
-
-
-        try {
-
-
-            if (registerRequest.getRole() < 1 && registerRequest.getRole() > 2) {
-                throw new Exception("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
-            }
-
-            if (registerRequest.getEmail().trim().isEmpty()) {
-                throw new Exception("Email Field must not be null");
-            }
-
-            if (registerRequest.getId() == null) {
-                throw new Exception("ID Field must not be null");
-            }
-
-            Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
-            Optional<User> duplicatePhoneUser = userService.getUserByPhone(registerRequest.getEmail());
-
-            Optional<User> duplicateIdUser = userService.getUserById(registerRequest.getId());
-
-            if (duplicateEmailUser.isPresent()) {
-                throw new DuplicateUserException("USER WITH THIS EMAIL ID ALREADY EXISTS");
-            }
-
-            if (duplicateIdUser.isPresent()) {
-                throw new DuplicateUserException("USER WITH THIS  ID ALREADY EXISTS");
-            }
-
-            if(duplicatePhoneUser.isPresent()){
-                throw new DuplicateUserException("USER WITH THIS MOBILE ALREADY EXISTS");
-            }
-
-
-            User user = User.builder().id(registerRequest.getId()).firstName(registerRequest.getFirstname()).lastName(registerRequest.getLastname()).email(registerRequest.getEmail()).password(passwordEncoder.encode(registerRequest.getPassword())).phoneNumber(registerRequest.getPhoneNumber()).build();
-
-            user.setRoleByInput(registerRequest.getRole());
-
-            userRepository.save(user);
-
-            if (registerRequest.getRole() == 2) {
-
-                if (documentData == null) {
-                    throw new Exception("WORK ID DOCUMENT IS REQUIRED KINDLY UPLOAD IT");
-                } else {
-                    KYC kyc = KYC.builder().user(user).id(user.getId()).documentData(ImageUtils.compressImage(documentData.getBytes())).build();
-
-                    kycRepository.save(kyc);
-
-                }
-            }
-
-
-//
-//            var token = jwtHelper.generateToken(user);
-
-            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success").message("USER  HAVE BEEN SUCCESSFULLY REGISTERED").build();
-
-
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-
-
-        } catch (DuplicateUserException e) {
-
-            String errorResponse = e.getMessage();
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.CONFLICT.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
-
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
-
-    }
-
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refreshJWTtoken(@RequestBody RefreshTokenRequest request) {
-
-        try {
-            RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshTokenString());
-
-
-            User user = refreshToken.getUser();
-
-            JwtResponse jwtResponse = JwtResponse.builder().refreshTokenString(refreshToken.getRefreshTokenString()).jwtToken(jwtHelper.generateToken(user)).username(user.getUsername()).build();
-
-            return new ResponseEntity<>(jwtResponse, HttpStatus.OK);
-
-
-        } catch (Exception e) {
-
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.UNAUTHORIZED.value()).status("ERROR").message("REFRESH TOKEN HAS BEEN EXPIRED").build();
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
-
-        }
-
-
-    }
-
-
-    public void doAuthenticate(String email, String password) {
-
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, password);
-        try {
-            authenticationManager.authenticate(authentication);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            this.authentication = authentication;
-
-        } catch (BadCredentialsException e) {
-            throw new BadCredentialsException("INVALID USERNAME OR PASSWORD");
-
-        }
-
-
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity exceptionHandler() {
-
-
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorDto.builder().code(HttpStatus.UNAUTHORIZED.value()).message("CREDENTIALS ARE INVALID").status("ERROR").build());
-    }
-
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorDto.builder()
+				.code(HttpStatus.UNAUTHORIZED.value()).message("CREDENTIALS ARE INVALID").status("ERROR").build());
+	}
 
 }

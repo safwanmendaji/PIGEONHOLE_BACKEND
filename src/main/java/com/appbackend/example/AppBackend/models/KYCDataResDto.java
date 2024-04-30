@@ -3,6 +3,8 @@ package com.appbackend.example.AppBackend.models;
 
 import lombok.*;
 
+import java.util.Map;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -28,9 +30,11 @@ public class KYCDataResDto {
     private String kin1;
     private String kin1Number;
     private String nationalId;
+    private int userId;
     private boolean isDocumentDataSubmitted;
     private boolean isUserImageSubmitted;
     private boolean isDigitalSignatureSubmitted;
+    private Map loanAmountInfo;
 
     //    @Lob
 

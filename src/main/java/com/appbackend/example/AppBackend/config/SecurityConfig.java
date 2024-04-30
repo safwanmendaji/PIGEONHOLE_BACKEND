@@ -38,14 +38,9 @@
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
             http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/home/**").authenticated()
-                            .requestMatchers("/auth/**").permitAll()
-                            .requestMatchers("/KYC/data").authenticated()
-                            .requestMatchers("/KYC/docData").authenticated()
-                            .requestMatchers("/KYC/submitData").authenticated()
+                            .requestMatchers("/auth/**" , "/payment/disbursement/**").permitAll()
                             .requestMatchers("/dashboard/**").hasAuthority("ADMIN")
                             .anyRequest().authenticated())
                     .exceptionHandling(ex -> ex.authenticationEntryPoint(point))
