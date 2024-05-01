@@ -42,7 +42,7 @@ public class PaymentController {
 
 	}
 
-	@PutMapping("/disbursement/travel/approve/")
+	@PutMapping("/disbursement/travel/approve")
 	public ResponseEntity<?> getApprovedForTravel(@RequestBody ApprovalDeclineDto dto) throws JsonProcessingException {
 		return paymentService.getApprovedForTravel(dto);
 	}

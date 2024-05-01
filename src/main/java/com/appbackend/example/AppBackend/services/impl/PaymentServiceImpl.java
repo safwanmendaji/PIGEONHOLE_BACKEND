@@ -16,6 +16,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -67,7 +69,9 @@ public class PaymentServiceImpl implements PaymentService {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
            }
 
-           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(paymentDto.getUserId());
+//           Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(paymentDto.getUserId());
+
            if(userCredit == null) {
                ErrorDto errorDto = ErrorDto.builder()
                        .code(HttpStatus.BAD_REQUEST.value())
@@ -124,6 +128,11 @@ public class PaymentServiceImpl implements PaymentService {
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
         HttpHeaders headers = getHttpHeaders();
 
+        Map<String , Object> reqMap = buildDisbursementsReq(paymentDto, user);
+        disbursementsHistory.setDisbursementsRequest(reqMap.toString());
+
+        disbursementsRepository.save(disbursementsHistory);
+
         HttpEntity<Map> apiRequestEntity = new HttpEntity<>(buildDisbursementsReq(paymentDto, user), headers);
 
         ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
@@ -155,6 +164,8 @@ public class PaymentServiceImpl implements PaymentService {
             userUtilizeCredit.setAvailableBalance(availableBalance - paymentDto.getAmount());
             userUtilizeCredit.setHistory(disbursementsHistory);
             userUtilizeCredit.setUserLoanEligibility(userUtilize.getUserLoanEligibility());
+            userUtilizeCredit.setUser(userUtilize.getUser());
+            userUtilizeCredit.setUtilizeOn(disbursementsHistory.getCreatedOn());
             utilizeUserCreditRepository.save(userUtilizeCredit);
         }
     }
@@ -225,7 +236,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private void processTravelDisbursement(ApprovalDeclineDto dto , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
         PaymentDto paymentDto = buildPaymentDtoForTravel(dto , disbursementsHistory);
-        UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(disbursementsHistory.getUserId());
+//        Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+        UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
         Optional<User> user = userRepository.findByid(disbursementsHistory.getUserId());
         processDisbursements(paymentDto,  user.get(), userCredit , disbursementsHistory);
     }
@@ -247,7 +259,7 @@ public class PaymentServiceImpl implements PaymentService {
                 processTravelDisbursement(dto , entity);
             }else{
                 entity.setApprovedForTravel(false);
-
+                entity.setReason(dto.getReason());
             }
             disbursementsRepository.save(entity);
             String message = "Record with ID " + dto.getId() + " approved for travel.";
@@ -259,7 +271,12 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + dto.getId() + " not found.");
+            ErrorDto errorDto = ErrorDto.builder()
+                    .message("Record with ID " + dto.getId() + " not found.")
+                    .code(HttpStatus.NOT_FOUND.value())
+                    .status("ERROR")
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
         }
     }
 
@@ -301,7 +318,8 @@ public class PaymentServiceImpl implements PaymentService {
         if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
             PaymentDto paymentDto  = new PaymentDto();
             paymentDto.setAmount(disbursementsHistory.getAmount());
-            UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(disbursementsHistory.getUserId());
+//            Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+            UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
             calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
 
         }

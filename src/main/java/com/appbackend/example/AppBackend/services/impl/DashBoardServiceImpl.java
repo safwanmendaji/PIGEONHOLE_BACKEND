@@ -9,6 +9,8 @@ import com.appbackend.example.AppBackend.enums.KycStatus;
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -242,7 +244,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 						}
 						userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
 
-						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(user.getId());
+//						Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(user.getId());
+
 						if (userCredit == null){
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
@@ -284,7 +288,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 	@Transactional
 	public ResponseEntity<?> enableDisEnabledUser(ApprovalDeclineDto dto) {
 	    Optional<User> optionalUser = userService.getUserById(dto.getId());
-	    if (!optionalUser.isPresent()) {
+		Optional<KYC> optionalKyc =  kycRepository.findByUserId(dto.getId());
+
+		if (optionalUser.isEmpty()) {
 	        SuccessDto errorResponse = SuccessDto.builder()
 	                .code(HttpStatus.NOT_FOUND.value())
 	                .status("Error")
@@ -292,39 +298,30 @@ public class DashBoardServiceImpl implements DashBoardService {
 	                .build();
 	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
 	    }
+		if (optionalKyc.isEmpty()) {
+			SuccessDto errorResponse = SuccessDto.builder()
+					.code(HttpStatus.NOT_FOUND.value())
+					.status("Error")
+					.message("User KYC Record Not Found.")
+					.build();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+		}
+
 	    User user = optionalUser.get();
-	    Boolean isApproved = user.getIsApproved();
-
-	    if (isApproved == null) {
-	        SuccessDto errorResponse = SuccessDto.builder()
-	                .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
-	                .status("Error")
-	                .message("Approval status is null for user with ID " + dto.getId())
-	                .build();
-	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-	    }
-
-	    user.setIsApproved(!isApproved);
-		Optional<KYC> optionalKyc =  kycRepository.findByUserId(dto.getId());
-
 		KYC kyc = optionalKyc.get();
 
-		if(user.getIsApproved().equals(true)){
-
-
-		kyc.setStatus(String.valueOf(KycStatus.APPROVED));
-
-		kycRepository.save(kyc);
-
-		}
-		if(user.getIsApproved().equals(false)){
+		if(dto.isApprove()){
+			kyc.setStatus(String.valueOf(KycStatus.APPROVED));
+			user.setIsApproved(true);
+		}else{
 			kyc.setStatus(String.valueOf(KycStatus.DECLINED));
 			kyc.setReason(dto.getReason());
+			user.setIsApproved(false);
 		}
-
+		kycRepository.save(kyc);
 	    userRepository.save(user);
 
-	    String status = isApproved ? "disabled" : "enabled";
+	    String status = dto.isApprove() ? "Enabled" : "Disabled";
 	    SuccessDto successResponse = SuccessDto.builder()
 	            .code(HttpStatus.OK.value())
 	            .status("Success")

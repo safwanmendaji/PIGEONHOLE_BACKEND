@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -38,6 +39,7 @@ public class DisbursementsHistory {
     private Double outstandingFees;
     private String teamLeadName;
     private String teamLeadContactNumber;
+    private String disbursementsRequest;
     private Date startDate;
     private Date endDate;
     private String destination;

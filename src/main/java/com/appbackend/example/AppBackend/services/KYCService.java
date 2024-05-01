@@ -17,6 +17,8 @@ import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepositor
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -330,15 +332,17 @@ public class KYCService {
                     .isDocumentDataSubmitted(kyc.getDocumentData() != null)
                     .isDigitalSignatureSubmitted(kyc.getDigitalSignature() != null)
                     .build();
-
-            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDesc(kyc.getUser().getId());
+//
+//            Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(kyc.getUser().getId());
             if(userCredit != null){
                 Map<String , Object> map = new HashMap<>();
                 long eligibleAmount = userCredit.getUserLoanEligibility().getEligibilityAmount();
-                double utilizeAmount = userCredit.getUtilizeBalance() != null ? userCredit.getUtilizeBalance() : 0.0;
+                Double availableAmount =  userCredit.getAvailableBalance();
+                double utilizeAmount = eligibleAmount - availableAmount;
                 map.put("eligibleAmount" , eligibleAmount);
                 map.put("utilizeAmount" , utilizeAmount);
-                map.put("availableAmount" , eligibleAmount - utilizeAmount);
+                map.put("availableAmount" , availableAmount);
                 kycResponse.setLoanAmountInfo(map);
             }
 
