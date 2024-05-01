@@ -13,6 +13,7 @@ import java.util.Map;
 @ToString
 @Data
 public class KYCDataResDto {
+
     private Integer workId;
     //    firstname will be avaialble from current authentication principal
     private String firstName;

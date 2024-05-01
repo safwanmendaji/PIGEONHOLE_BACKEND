@@ -148,11 +148,7 @@ public class AuthServiceImpl implements AuthService {
                 throw new Exception("Email Field must not be null");
             }
 
-            // Check if ID field is null
-            if (registerRequest.getId() == null) {
-                throw new Exception("ID Field must not be null");
-            }
-
+          
             // Check if email is already in use
             Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
             if (duplicateEmailUser.isPresent()) {
@@ -172,7 +168,6 @@ public class AuthServiceImpl implements AuthService {
 
             // Create new user
             User user = User.builder()
-                    .id(registerRequest.getId())
                     .firstName(registerRequest.getFirstname())
                     .lastName(registerRequest.getLastname())
                     .email(registerRequest.getEmail())

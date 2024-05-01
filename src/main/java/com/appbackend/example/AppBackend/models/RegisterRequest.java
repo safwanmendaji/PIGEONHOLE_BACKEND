@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 //@Component
 public class RegisterRequest {
 
-    private Integer id;
     private String firstname;
     private String lastname;
     private String email;
