@@ -101,37 +101,24 @@ public class OtpService {
     }
 
     public String verifyFpwOtp(String reqUserOtp, User savedUser) {
-
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-//        UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getUserEmail());
-
-
-//        System.out.println(reqUserEmail.equals(authentication.getName()));
-//        System.out.println("reqUserEmail"+reqUserEmail);
-//        System.out.println("authuser"+authentication.getName());
-
-//        if(reqUserEmail.equals(savedUser.getUsername())){
-
-//            User savedUser=userRepository.findByEmail(reqUserEmail).get();
-
         if (Duration.between(savedUser.getOtpGeneratedTime(), Instant.now()).getSeconds() < 120) {
             if (reqUserOtp.equals(savedUser.getOtp())) {
-//                savedUser.setLoginTimeStamp(Instant.now());
-                return "now you can change your password ";
+                return "now you can change your password";
             } else {
-                throw new RuntimeException("otp is Invalid ");
+                throw new IllegalArgumentException("Invalid OTP");
             }
         } else {
-            throw new RuntimeException("your one-time password (otp) has expired");
+            throw new IllegalArgumentException("OTP has expired");
         }
+    }
+
 
 //        }
 //        else {
 //            throw new RuntimeException("The user email is not found");
 //        }
 
-    }
+
 
     public String generateOtp() {
         SecureRandom secureRandom = new SecureRandom();
@@ -206,4 +193,16 @@ public class OtpService {
     }
 
 
+    public boolean verifyOtpAndCheckExpiration(String otp, User user) {
+        if (user.getOtp() == null || !user.getOtp().equals(otp)) {
+            return false; // OTP does not match
+        }
+        Instant otpGeneratedTime = user.getOtpGeneratedTime();
+        Instant currentTime = Instant.now();
+        Duration expirationDuration = Duration.ofMinutes(5);
+        if (otpGeneratedTime.plus(expirationDuration).isBefore(currentTime)) {
+            return false;
+        }
+        return true;
+    }
 }

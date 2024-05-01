@@ -100,109 +100,55 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody JwtRequest request) {
-        try {
             log.info("Inside Login Controller");
             return authService.login(request);
-        } catch (UsernameNotFoundException e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("USER WITH EMAIL " + request.getUserName() + " IS NOT FOUND ").build();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-        }
     }
 
 
     @Async
     @PostMapping("/verifyotp")
-    public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest, @CurrentSecurityContext SecurityContext context) {
-        try {
+    public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest, @CurrentSecurityContext SecurityContext context) throws Exception {
             log.info("Inside Verify Controller");
             return authService.verifyUserOtp(otpRequest);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
 
     }
 
 
     @PostMapping("/forgotPasswordOtp")
     public ResponseEntity<?> forgotPassword(@RequestBody FpOtpReq fpOtpReq) {
-        try {
             log.info("Inside ForgotPasswordOtp Controller");
             return authService.forgotPasswordOtp(fpOtpReq);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
-
     }
 
     @PostMapping("/forgotPasswordOtpVerify")
     public ResponseEntity<?> forgotPasswordOtpVerify(@RequestBody FpOtpVerify fpOtpVerify) {
-
-        try {
             log.info("Inside ForgotPasswordOtpVerify Controller");
             return authService.forgotPasswordOtpVerify(fpOtpVerify);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
-
-
     }
 
     @PostMapping("/changePassword")
     public ResponseEntity<?> changePassword(@RequestBody ChangePassword changePassword) {
-        try {
             log.info("Inside changePassword Controller");
             return authService.changePassword(changePassword);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(e.getMessage()).build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
         }
 
-
-    }
 
 
     @PostMapping(value = "/register", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> register(@RequestParam(value = "registerRequest", required = true) String registerRequestString,
-                                      @RequestParam(value = "documentData", required = false) MultipartFile documentData) throws JsonProcessingException {
-        try {
-            return authService.register(registerRequestString, documentData);
-        } catch (DuplicateUserException e) {
-            ErrorDto errorDto = ErrorDto.builder()
-                    .code(HttpStatus.CONFLICT.value())
-                    .status("ERROR")
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
-        } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder()
-                    .code(HttpStatus.BAD_REQUEST.value())
-                    .status("ERROR")
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-        }
+                                      @RequestParam(value = "documentData", required = false) MultipartFile documentData) throws Exception {
+
+        return authService.register(registerRequestString, documentData);
     }
 
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshJWTtoken(@RequestBody RefreshTokenRequest request) {
-
         try {
             RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshTokenString());
-
-
             User user = refreshToken.getUser();
-
             JwtResponse jwtResponse = JwtResponse.builder().refreshTokenString(refreshToken.getRefreshTokenString()).jwtToken(jwtHelper.generateToken(user)).username(user.getUsername()).build();
-
             return new ResponseEntity<>(jwtResponse, HttpStatus.OK);
-
-
         } catch (Exception e) {
 
             ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.UNAUTHORIZED.value()).status("ERROR").message("REFRESH TOKEN HAS BEEN EXPIRED").build();

@@ -1,6 +1,7 @@
 package com.appbackend.example.AppBackend.services.impl;
 
 import com.appbackend.example.AppBackend.config.DuplicateUserException;
+import com.appbackend.example.AppBackend.config.OtpExpiredException;
 import com.appbackend.example.AppBackend.entities.KYC;
 import com.appbackend.example.AppBackend.entities.RefreshToken;
 import com.appbackend.example.AppBackend.entities.User;
@@ -66,89 +67,150 @@ public class AuthServiceImpl implements AuthService {
 
 
     @Override
-    public ResponseEntity<?> verifyUserOtp(OtpRequest otpRequest) throws Exception {
-        log.info("Inside AuthServiceImpl verifyUserOtp Method");
+    public ResponseEntity<?> verifyUserOtp(OtpRequest otpRequest) {
         try {
+            log.info("Inside AuthServiceImpl verifyUserOtp Method");
             UserDetails userDetails = userDetailsService.loadUserByUsername(otpRequest.getEmail());
             User user = userRepository.findByEmail(otpRequest.getEmail()).orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-            // Verify OTP
-            emailOtpService.verifyOtp(otpRequest.getOtp(), user);
+            // Verify OTP and check expiration
+            boolean otpVerified = emailOtpService.verifyOtpAndCheckExpiration(otpRequest.getOtp(), user);
 
-            // If OTP verification is successful, generate JWT token and refresh token
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
-            String token = jwtHelper.generateToken(userDetails);
-            JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            if (otpVerified) {
+                // If OTP verification is successful, generate JWT token and refresh token
+                RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
+                String token = jwtHelper.generateToken(userDetails);
+                JwtResponse response = JwtResponse.builder().jwtToken(token).refreshTokenString(refreshToken.getRefreshTokenString()).username(userDetails.getUsername()).build();
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            } else {
+                // If OTP verification fails or it has expired
+                ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message("Incorrect or expired OTP").build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
         } catch (UsernameNotFoundException e) {
             ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("User not found").build();
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
         } catch (Exception e) {
-            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message("Incorrect OTP").build();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("Internal server error").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
     }
 
+
+
     @Override
     public ResponseEntity<?> login(JwtRequest request) {
-        log.info("Inside AuthServiceImpl login method");
-        UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
-        System.out.println("Name==>> " + userDetails.getUsername());
+        try {
+            log.info("Inside AuthServiceImpl login method");
+            UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
+            System.out.println("Name==>> " + userDetails.getUsername());
 
-        this.doAuthenticate(request.getUserName(), request.getPassword());
-        emailOtpService.sendVerificationOtp((User) userDetails, request.getUserName());
+            this.doAuthenticate(request.getUserName(), request.getPassword());
+            emailOtpService.sendVerificationOtp((User) userDetails, request.getUserName());
 
-        SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS").message("OTP HAS BEEN SEND TO " + authentication.getName()).build();
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("SUCCESS").message("OTP HAS BEEN SEND TO " + authentication.getName()).build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (UsernameNotFoundException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("User not found").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+        }
+        catch (BadCredentialsException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message("CREDENTIALS WRONG").build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+        }
+        catch(Exception e){
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("SOMETHING WENT WRONG").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
+
     }
 
     @Override
     public ResponseEntity<?> forgotPasswordOtp(FpOtpReq fpOtpReq) {
-        log.info("Inside AuthServiceImpl forgotPasswordOtp method");
-        UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpReq.getEmail());
-        User user = userRepository.findByEmail(fpOtpReq.getEmail()).get();
-        emailOtpService.sendVerificationOtp((User) userDetails, fpOtpReq.getEmail());
-        String response = "OTP HAS BEEN SEND TO " + " " + user.getEmail();
-        SuccessDto successDto = SuccessDto.builder().message(response).code(HttpStatus.OK.value()).status("SUCCESS").build();
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        try {
+            log.info("Inside AuthServiceImpl forgotPasswordOtp method");
+            UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpReq.getEmail());
+            User user = userRepository.findByEmail(fpOtpReq.getEmail()).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            emailOtpService.sendVerificationOtp(user, fpOtpReq.getEmail());
+            String response = "OTP HAS BEEN SEND TO " + user.getEmail();
+            SuccessDto successDto = SuccessDto.builder().message(response).code(HttpStatus.OK.value()).status("SUCCESS").build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (UsernameNotFoundException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("User not found").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+
+        } catch (Exception e) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("Internal server error").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
+
 
     @Override
     public ResponseEntity<?> forgotPasswordOtpVerify(FpOtpVerify fpOtpVerify) {
-        log.info("Inside AuthServiceImpl forgotPasswordOtpVerify method");
-        UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpVerify.getEmail());
-        User user = userRepository.findByEmail(fpOtpVerify.getEmail()).get();
-        String response = emailOtpService.verifyFpwOtp(fpOtpVerify.getOtp(), user);
-        System.out.println(response);
-        SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message(response).code(HttpStatus.OK.value()).build();
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        try {
+            log.info("Inside AuthServiceImpl forgotPasswordOtpVerify method");
+            UserDetails userDetails = userDetailsService.loadUserByUsername(fpOtpVerify.getEmail());
+            User user = userRepository.findByEmail(fpOtpVerify.getEmail()).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            // Verify OTP
+            emailOtpService.verifyFpwOtp(fpOtpVerify.getOtp(), user);
+
+            SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message("OTP verification successful now you can change password").code(HttpStatus.OK.value()).build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (UsernameNotFoundException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("User not found").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+        } catch (IllegalArgumentException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message(ex.getMessage()).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+        } catch (Exception e) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("Internal server error").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
+
+
 
     @Override
     public ResponseEntity<?> changePassword(ChangePassword changePassword) {
-        log.info("Inside AuthServiceImpl changePassword method");
-        UserDetails userDetails = userDetailsService.loadUserByUsername(changePassword.getEmail());
-        User user = userRepository.findByEmail(changePassword.getEmail()).get();
-        user.setPassword(passwordEncoder.encode(changePassword.getPassword()));
-        userRepository.save(user);
-        SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message("YOUR PASSWORD HAS BEEN CHANGED SUCCESSFULLY").code(HttpStatus.OK.value()).build();
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        try {
+            log.info("Inside AuthServiceImpl changePassword method");
+            if (changePassword.getPassword().isEmpty()) {
+                ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR").message("Password must not be empty").build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
+            UserDetails userDetails = userDetailsService.loadUserByUsername(changePassword.getEmail());
+            User user = userRepository.findByEmail(changePassword.getEmail()).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+            user.setPassword(passwordEncoder.encode(changePassword.getPassword()));
+            userRepository.save(user);
+            SuccessDto successDto = SuccessDto.builder().status("SUCCESS").message("YOUR PASSWORD HAS BEEN CHANGED SUCCESSFULLY").code(HttpStatus.OK.value()).build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (UsernameNotFoundException ex) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("User not found").build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+        } catch (Exception e) {
+            ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("Internal server error").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
 
+
+
     @Override
-    public ResponseEntity<?> register(String registerRequestString, MultipartFile documentData) throws Exception {
-        log.info("Inside AuthServiceImpl register method");
-        ObjectMapper mapper = new ObjectMapper();
-        RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
+    public ResponseEntity<?> register(String registerRequestString, MultipartFile documentData) {
         try {
+            log.info("Inside AuthServiceImpl register method");
+            ObjectMapper mapper = new ObjectMapper();
+            RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
+
             log.info("Inside register Controller");
 
             // Check if email field is empty
             if (registerRequest.getEmail().trim().isEmpty()) {
-                throw new Exception("Email Field must not be null");
+                throw new IllegalArgumentException("Email Field must not be null");
             }
 
-          
             // Check if email is already in use
             Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
             if (duplicateEmailUser.isPresent()) {
@@ -163,7 +225,7 @@ public class AuthServiceImpl implements AuthService {
 
             // Role validation
             if (registerRequest.getRole() < 1 || registerRequest.getRole() > 2) {
-                throw new Exception("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
+                throw new IllegalArgumentException("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
             }
 
             // Create new user
@@ -194,14 +256,27 @@ public class AuthServiceImpl implements AuthService {
                     .message("USER HAS BEEN SUCCESSFULLY REGISTERED")
                     .build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
-        } catch (Exception e) {
-            // Return error response
+        } catch (DuplicateUserException ex) {
             ErrorDto errorDto = ErrorDto.builder()
                     .code(HttpStatus.BAD_REQUEST.value())
                     .status("error")
-                    .message(e.getMessage())
+                    .message(ex.getMessage())
                     .build();
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+        } catch (IllegalArgumentException ex) {
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.BAD_REQUEST.value())
+                    .status("error")
+                    .message(ex.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+        } catch (Exception e) {
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("error")
+                    .message("Internal server error")
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
     }
 
@@ -209,18 +284,14 @@ public class AuthServiceImpl implements AuthService {
 
 
     public void doAuthenticate(String email, String password) {
-
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, password);
         try {
             authenticationManager.authenticate(authentication);
             SecurityContextHolder.getContext().setAuthentication(authentication);
             this.authentication = authentication;
-
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException("INVALID USERNAME OR PASSWORD");
-
         }
-
-
     }
+
 }
