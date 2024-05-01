@@ -22,6 +22,7 @@ import java.util.Map;
 public class CreditScore implements Serializable {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @OneToOne

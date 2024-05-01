@@ -22,6 +22,7 @@ import java.io.Serializable;
 public class KYC implements Serializable {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @OneToOne
