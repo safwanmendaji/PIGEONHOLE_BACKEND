@@ -49,68 +49,69 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private UtilizeUserCreditRepository utilizeUserCreditRepository;
-
     @Override
     public ResponseEntity<?> payment(PaymentDto paymentDto) {
-       try {
-           Optional<User> optionalUser = userRepository.findByid(paymentDto.getUserId());
+        try {
+            Optional<User> optionalUser = userRepository.findByid(paymentDto.getUserId());
 
-           if(!optionalUser.isPresent()){
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.NOT_FOUND.value())
-                       .status("ERROR")
-                       .message("USER NOT FOUND FOR THIS USERID : " + paymentDto.getUserId()).build();
-               return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-           }
+            if (!optionalUser.isPresent()) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.NOT_FOUND.value())
+                        .status("ERROR")
+                        .message("USER NOT FOUND FOR THIS USERID : " + paymentDto.getUserId()).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+            }
 
-           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId());
-           if(userCredit == null) {
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.BAD_REQUEST.value())
-                       .status("ERROR")
-                       .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
-                       .build();
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-           }
+            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findLatestByUserIdOrderByCreditScoreDescDesc(paymentDto.getUserId());
+            if (userCredit == null) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.BAD_REQUEST.value())
+                        .status("ERROR")
+                        .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
+                        .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
 
             double availableLoanAmount = userCredit.getAvailableBalance();
 
-           if(availableLoanAmount < paymentDto.getAmount()){
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.BAD_REQUEST.value())
-                       .status("ERROR")
-                       .message("INSUFFICIENT BALANCE IN YOUR ACCOUNT. AVAILABLE BALANCE IS : "+ availableLoanAmount)
-                       .build();
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-           }
+            if (availableLoanAmount < paymentDto.getAmount()) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.BAD_REQUEST.value())
+                        .status("ERROR")
+                        .message("INSUFFICIENT BALANCE IN YOUR ACCOUNT. AVAILABLE BALANCE IS : " + availableLoanAmount)
+                        .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
 
+            User user = optionalUser.get();
+            UUID uuid = UUID.randomUUID();
+            paymentDto.setReference(uuid);
 
-           User user = optionalUser.get();
-           UUID uuid = UUID.randomUUID();
-           paymentDto.setReference(uuid);
+            if (paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())) {
+                buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED, new DisbursementsHistory());
+                SuccessDto successDto = SuccessDto.builder()
+                        .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT.").code(HttpStatus.OK.value()).status("SUCCESS").build();
+                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            } else {
+                DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user, userCredit);
 
-           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
-               buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
-               SuccessDto successDto = SuccessDto.builder()
-                       .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
-               return ResponseEntity.status(HttpStatus.OK).body(successDto);
-           }else {
-               DisbursementsHistory disbursementsHistory = processDisbursements(paymentDto, user , userCredit);
+                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
-               SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
-
-               return ResponseEntity.status(HttpStatus.OK).body(successDto);
-           }
+                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            }
         } catch (Exception ex) {
-           ErrorDto errorDto = ErrorDto.builder()
-                   .code(HttpStatus.NOT_FOUND.value())
-                   .status("ERROR")
-                   .message(ex.getMessage())
-                   .build();
 
-           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            ex.printStackTrace();
 
-       }
+            // Return an appropriate error response
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
 
     private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit) throws JsonProcessingException {
@@ -162,100 +163,156 @@ public class PaymentServiceImpl implements PaymentService {
         return headers;
     }
     @Override
-    public ResponseEntity<?> checkDisbursementsStatus(String transactionId , HttpHeaders headers){
-        String status = checkDisbursementsCheckStatus(transactionId , null);
-
-        SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : .").code(HttpStatus.OK.value()).status("SUCCESS").data(status).build();
-
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+    public ResponseEntity<?> checkDisbursementsStatus(String transactionId, HttpHeaders headers) {
+        try {
+            String status = checkDisbursementsCheckStatus(transactionId, null);
+            SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : .").code(HttpStatus.OK.value()).status("SUCCESS").data(status).build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
+
 
     @Override
     public ResponseEntity<?> getByDisbursementHistoryById(int id) {
+        try {
+            Optional<DisbursementsHistory> response = disbursementsRepository.findById(id);
 
-        Optional<DisbursementsHistory> response = disbursementsRepository.findById(id);
+            if (response.isPresent()) {
+                DisbursementsHistory data = response.get();
 
+                SuccessDto successDto = SuccessDto.builder()
+                        .message("DISBURSEMENTS TRANSACTION STATUS IS : .")
+                        .code(HttpStatus.OK.value())
+                        .status("SUCCESS")
+                        .data(data)
+                        .build();
 
-        if (response.isPresent()) {
+                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            } else {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.NOT_FOUND.value())
+                        .status("ERROR")
+                        .message("Data not found for ID: " + id)
+                        .build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
 
-            DisbursementsHistory data = response.get();
-
-
-            SuccessDto successDto = SuccessDto.builder()
-                    .message("DISBURSEMENTS TRANSACTION STATUS IS : .")
-                    .code(HttpStatus.OK.value())
-                    .status("SUCCESS")
-                    .data(data)
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
                     .build();
 
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-        } else {
-
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Data not found for ID: " + id);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
     }
+
 
     @Override
     public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
-        List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
+        try {
+            List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
+            Map<String, List<DisbursementsHistory>> groupedData = allDisbursements.stream()
+                    .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
 
-        Map<String, List<DisbursementsHistory>> groupedData = allDisbursements.stream()
-                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
-
-
-
-        SuccessDto successDto = SuccessDto.builder()
-                .message("Disbursement transaction status")
-                .code(HttpStatus.OK.value())
-                .status("SUCCESS")
-                .data(groupedData)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
-    }
-
-    @Override
-    public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) {
-        DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
-        if (entity != null) {
-            if(dto.isApprove()){
-                entity.setApprovedForTravel(true);
-//                payment()
-            }else{
-                entity.setApprovedForTravel(false);
-
-            }
-            disbursementsRepository.save(entity);
-            String message = "Record with ID " + dto.getId() + " approved for travel.";
             SuccessDto successDto = SuccessDto.builder()
-                    .message(message)
+                    .message("Disbursement transaction status")
                     .code(HttpStatus.OK.value())
-                    .status("APPROVED")
-                    .data(null)
+                    .status("SUCCESS")
+                    .data(groupedData)
                     .build();
+
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + dto.getId() + " not found.");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
     }
 
+
+    @Override
+    public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) {
+        try {
+            DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
+            if (entity != null) {
+                if (dto.isApprove()) {
+                    entity.setApprovedForTravel(true);
+                } else {
+                    entity.setApprovedForTravel(false);
+                }
+                disbursementsRepository.save(entity);
+                String message = "Record with ID " + dto.getId() + " approved for travel.";
+                SuccessDto successDto = SuccessDto.builder()
+                        .message(message)
+                        .code(HttpStatus.OK.value())
+                        .status("APPROVED")
+                        .data(null)
+                        .build();
+                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Record with ID " + dto.getId() + " not found.");
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
+    }
+
+
     @Override
     public ResponseEntity<?> getDisbursementHistoryOfUser(Authentication authentication) {
-        User user = (User) authentication.getPrincipal();
-        Integer userId = user.getId();
-        List<DisbursementsHistory> disbursementHistoryofUser = disbursementsRepository.findByUserId(userId);
-        Map<String, List<DisbursementsHistory>> groupedDisbursementHistory = disbursementHistoryofUser.stream()
-                .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
-        String message = user.getFirstName() + " Disbursement History";
-        SuccessDto successDto = SuccessDto.builder()
-                .message(message)
-                .code(HttpStatus.OK.value())
-                .status("SUCESS")
-                .data(groupedDisbursementHistory)
-                .build();
+        try {
+            User user = (User) authentication.getPrincipal();
+            Integer userId = user.getId();
+            List<DisbursementsHistory> disbursementHistoryofUser = disbursementsRepository.findByUserId(userId);
+            Map<String, List<DisbursementsHistory>> groupedDisbursementHistory = disbursementHistoryofUser.stream()
+                    .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
+            String message = user.getFirstName() + " Disbursement History";
+            SuccessDto successDto = SuccessDto.builder()
+                    .message(message)
+                    .code(HttpStatus.OK.value())
+                    .status("SUCCESS")
+                    .data(groupedDisbursementHistory)
+                    .build();
 
-        return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                    .status("ERROR")
+                    .message("Internal Server Error")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
+
 
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
