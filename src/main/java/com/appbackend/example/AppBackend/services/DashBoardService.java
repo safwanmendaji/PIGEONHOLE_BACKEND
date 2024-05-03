@@ -3,6 +3,7 @@ package com.appbackend.example.AppBackend.services;
 
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.models.UserKYCDto;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
 public interface DashBoardService {
@@ -19,13 +20,9 @@ public interface DashBoardService {
 
 
 
-
-
-
-
-
-
-
-
 	ResponseEntity<?> enableDisEnabledUser(ApprovalDeclineDto dto);
+
+	ResponseEntity<?> approvedUser();
+
+
 }

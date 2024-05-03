@@ -4,8 +4,13 @@ import java.util.List;
 import java.util.Map;
 
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
+import com.appbackend.example.AppBackend.security.JwtHelper;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.java.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.repository.query.Param;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +24,7 @@ import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 import com.appbackend.example.AppBackend.services.AdminServices.UserDataService;
 
+@Log
 @RestController
 @PreAuthorize("hasAuthority('ADMIN')")
 @RequestMapping("/dashboard")
@@ -30,8 +36,13 @@ public class DashboardController {
 	@Autowired
 	CreditScoreService creditScoreService;
 
+
+
 	@Autowired
 	private DashBoardService dashboardService;
+
+	@Autowired
+	private JwtHelper jwtHelper;
 
 	@PostMapping("/kyc/users")
 	public ResponseEntity<?> getUsersData(@RequestBody Map<String, Object> searchInfo) {
@@ -78,5 +89,14 @@ public class DashboardController {
 		return dashboardService.enableDisEnabledUser(dto);
 
 	}
+
+	@GetMapping("/users/approvedUser")
+	public ResponseEntity<?>  approvedUser(){
+		return dashboardService.approvedUser();
+	}
+
+
+
+
 
 }

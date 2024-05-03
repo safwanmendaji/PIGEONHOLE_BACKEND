@@ -27,4 +27,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
 
     Optional<User> findByPhoneNumber(String username);
+
+    List<User> findByIsApproved(boolean b);
 }
