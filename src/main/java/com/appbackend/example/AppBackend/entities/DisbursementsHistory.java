@@ -1,7 +1,5 @@
 package com.appbackend.example.AppBackend.entities;
 
-import com.appbackend.example.AppBackend.enums.DisbursementsType;
-import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,8 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Date;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -48,7 +44,9 @@ public class DisbursementsHistory {
     private boolean approvedForTravel;
     @Lob
     private byte[] document;
+    private String travelDeclineReason;
     private String reason;
+    private String disbursementFailReason;
     private int approvedBy;
     private LocalDateTime approvedOn;
     private int updateBy;

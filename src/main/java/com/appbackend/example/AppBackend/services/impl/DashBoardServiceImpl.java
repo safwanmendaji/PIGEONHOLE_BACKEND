@@ -205,6 +205,8 @@ public class DashBoardServiceImpl implements DashBoardService {
 								.orElseThrow(() -> new UsernameNotFoundException("User not found with this id: " + userKycDto.getUserId()));
 						LoanEligibility loanEligibility = loanEligibilityRepository.findById(userKycDto.getLoanEligibility())
 								.orElseThrow(() -> new UsernameNotFoundException("LoanEligibility not found with this id: " + userKycDto.getLoanEligibility()));
+						CreditScore creditScore = creditScoreRepository.findByUserId(userKycDto.getUserId())
+								.orElseThrow(() -> new UsernameNotFoundException("CreditScore Not Found With This User_id: " + userKycDto.getUserId()));
 
 						Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(user.getId());
 						long oldEligibilityAmount = 0;
@@ -220,39 +222,23 @@ public class DashBoardServiceImpl implements DashBoardService {
 						userLoanEligibility.setEligibility(loanEligibility);
 						userLoanEligibility.setUser(user);
 
+						newEligibilityAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() , creditScore.getTotalExposure());
 
-						if(userKycDto.getEligibilityAmount() != null){
-							newEligibilityAmount = userKycDto.getEligibilityAmount();
-						}else{
-							newEligibilityAmount = loanEligibility.getEndAmount();
-						}
-
-						if(newEligibilityAmount == oldEligibilityAmount){
-							if(userKycDto.getEligibilityAmount() != null) {
-								userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
-							}else{
-								userLoanEligibility.setEligibilityAmount(loanEligibility.getEndAmount());
-							}
-						}else{
+						if(newEligibilityAmount != oldEligibilityAmount){
 							userLoanEligibility.setOldEligibilityAmount(oldEligibilityAmount);
-							if(userKycDto.getEligibilityAmount() != null) {
-								userLoanEligibility.setEligibilityAmount(userKycDto.getEligibilityAmount());
-							}else{
-								userLoanEligibility.setEligibilityAmount(loanEligibility.getEndAmount());
-							}
 							updateEligibilityAmount = true;
 						}
+
+						userLoanEligibility.setEligibilityAmount(calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() , creditScore.getTotalExposure()));
 						userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
 
-//						Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
+
 						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(user.getId());
 
 						if (userCredit == null){
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
-							userCredit.setAvailableBalance(userKycDto.getEligibilityAmount() != null
-									? userKycDto.getEligibilityAmount().doubleValue()
-									: loanEligibility.getEndAmount());
+							userCredit.setAvailableBalance((double) loanEligibility.getEndAmount());
 							userCredit.setUtilizeBalance(0.0);
 							userCredit.setUser(user);
 							utilizeUserCreditRepository.save(userCredit);
@@ -282,6 +268,12 @@ public class DashBoardServiceImpl implements DashBoardService {
 					.message("SOME THING WENT WRONG. " + e.getMessage()).build();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(successDto);
 		}
+	}
+
+	private Long calculateEligibilityBasedOnExposer(Long levelAmount ,Float exposure){
+			double multiplyAmount = levelAmount * exposure;
+			return  Long.parseLong(String.valueOf(multiplyAmount / 100));
+
 	}
 
 	@Override

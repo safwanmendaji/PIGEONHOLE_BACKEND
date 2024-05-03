@@ -454,10 +454,14 @@ public class CreditScoreService {
 
             totalCreditScore = totalCreditScore + findOldScoreValue(creditScore.getAge()) + findOldScoreValue(creditScore.getGender()) + findOldScoreValue(creditScore.getNextOfKinType());
 
-            float totalExposure = (float) (blacklistedCreditScore + workPlaceDepartmentCreditScore +
-                    occupationCreditScore + amountInArrears + daysInArrears +
+            float negativeExposure = (float) (blacklistedCreditScore + amountInArrears + loanHistoryLoansWithArrears);
+
+            float positiveExposure = (float) (workPlaceDepartmentCreditScore +
+                    occupationCreditScore  + daysInArrears +
                     rescheduleHistory + priorityClient + security +
-                    loanHistoryLoansWithArrears + loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+                     loanHistoryLoansWithoutArrears + genScore + ageScore + kinScore);
+
+            float totalExposure = negativeExposure + positiveExposure;
 
 
             creditScore.setTotalCreditScore(totalCreditScore);

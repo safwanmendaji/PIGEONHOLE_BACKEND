@@ -259,7 +259,7 @@ public class PaymentServiceImpl implements PaymentService {
                 processTravelDisbursement(dto , entity);
             }else{
                 entity.setApprovedForTravel(false);
-                entity.setReason(dto.getReason());
+                entity.setTravelDeclineReason(dto.getReason());
             }
             disbursementsRepository.save(entity);
             String message = "Record with ID " + dto.getId() + " approved for travel.";
@@ -351,6 +351,7 @@ public class PaymentServiceImpl implements PaymentService {
             // Get the nested map under the "data" key
             Map<String, Object> dataMap = (Map<String, Object>) resultMap.get("data");
 
+            System.out.println("Result ==>>> " + dataMap);
             // Get the value of "transactionStatus" from the nested map
             String transactionStatus = (String) dataMap.get("transactionStatus");
 

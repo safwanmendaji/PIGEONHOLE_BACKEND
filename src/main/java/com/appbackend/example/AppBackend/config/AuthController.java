@@ -79,11 +79,11 @@ public class AuthController {
 			UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUserName());
 			User user = (User) userDetails;
 
-			if (user.getRole().equals(Role.USER) && user.getIsApproved() != null && !user.getIsApproved()) {
-				ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.FORBIDDEN.value()).status("ERROR")
-						.message("YOUR PROFILE IS NOT APPROVED BY ADMIN").build();
-				return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
-			}
+//			if (user.getRole().equals(Role.USER) && user.getIsApproved() != null && !user.getIsApproved()) {
+//				ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.FORBIDDEN.value()).status("ERROR")
+//						.message("YOUR PROFILE IS NOT APPROVED BY ADMIN").build();
+//				return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorDto);
+//			}
 
 			this.doAuthenticate(request.getUserName(), request.getPassword());
 			emailOtpService.sendVerificationOtp(user, request.getUserName());
