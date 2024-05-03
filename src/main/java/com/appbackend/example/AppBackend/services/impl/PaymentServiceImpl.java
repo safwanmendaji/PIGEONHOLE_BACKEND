@@ -1,5 +1,6 @@
 package com.appbackend.example.AppBackend.services.impl;
 
+import com.appbackend.example.AppBackend.common.AppCommon;
 import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.entities.UtilizeUserCredit;
@@ -35,6 +36,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
+    @Autowired
+    private AppCommon appCommon;
     @Autowired
     private RestTemplate restTemplate;
     @Value("${payment.username}")
@@ -126,7 +129,7 @@ public class PaymentServiceImpl implements PaymentService {
     private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
 
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
-        HttpHeaders headers = getHttpHeaders();
+        HttpHeaders headers = appCommon.getHttpHeaders();
 
         Map<String , Object> reqMap = buildDisbursementsReq(paymentDto, user);
         disbursementsHistory.setDisbursementsRequest(reqMap.toString());
@@ -170,17 +173,6 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private HttpHeaders getHttpHeaders() throws JsonProcessingException {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        String tokenResponse = getPigeonToken(headers);
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(tokenResponse);
-        String accessToken = root.get("access_token").asText();
-
-        headers.setBearerAuth(accessToken);
-        return headers;
-    }
     @Override
     public ResponseEntity<?> checkDisbursementsStatus(String transactionId , HttpHeaders headers){
         String status = checkDisbursementsCheckStatus(transactionId , null);
@@ -311,6 +303,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
         return  ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
+
+
+
     public void checkDisbursementStatusAndUpdate(DisbursementsHistory disbursementsHistory){
         String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , null);
         disbursementsHistory.setPaymentStatus(status);
@@ -336,7 +331,7 @@ public class PaymentServiceImpl implements PaymentService {
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
         try {
             if(headers == null){
-                headers = getHttpHeaders();
+                headers = appCommon.getHttpHeaders();
             }
             String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements/" + transactionId;
             HttpEntity<Map> apiRequestEntity = new HttpEntity<>(headers);
@@ -402,26 +397,6 @@ public class PaymentServiceImpl implements PaymentService {
             e.printStackTrace();
         }
         return disbursementsHistory;
-    }
-
-
-    private String getPigeonToken(HttpHeaders headers){
-        restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
-
-        String requestBody = "{\"username\": \"" + username + "\", \"password\": \"" + password + "\"}";
-        HttpEntity<String> requestEntity = new HttpEntity<>(requestBody, headers);
-
-        String tokenUrl = "https://api.valueadditionmicrofinance.com/v1/token";
-
-        try {
-            ResponseEntity<String> tokenResponseEntity = restTemplate.exchange(tokenUrl, HttpMethod.POST, requestEntity, String.class);
-
-            String tokenResponse = tokenResponseEntity.getBody();
-            return tokenResponse;
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return null;
     }
 
     private Map<String , Object> buildDisbursementsReq(PaymentDto paymentDto , User user){
