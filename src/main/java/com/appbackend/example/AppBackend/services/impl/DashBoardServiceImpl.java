@@ -55,6 +55,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	private UtilizeUserCreditRepository utilizeUserCreditRepository;
 
 	@Override
+	@Transactional
 	public ResponseEntity<?> getAllUsers() {
 		List<User> users = userRepository.findAll();
 		List<UserDto> userDtos = users.stream().map(user -> {
@@ -63,17 +64,26 @@ public class DashBoardServiceImpl implements DashBoardService {
 			String lastName = user.getLastName();
 			String mobile = user.getPhoneNumber();
 			String email = user.getEmail();
-			Boolean isApproved = user.getIsApproved();
 
 
+			String status = "";
+			Optional<KYC> optionalKyc = kycRepository.findByUserId(userId);
+			if (optionalKyc.isPresent()) {
+				status = optionalKyc.get().getStatus();
+			}
 
 			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
 			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
 
-			return new UserDto(userId, firstName, lastName, mobile, email, score,isApproved);
+			return new UserDto(userId, firstName, lastName, mobile, email, score, status);
 		}).collect(Collectors.toList());
-		SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
-				.message("DATA GET SUCCESSFULLY.").data(userDtos).build();
+
+		SuccessDto successDto = SuccessDto.builder()
+				.code(HttpStatus.OK.value())
+				.status("success")
+				.message("DATA GET SUCCESSFULLY.")
+				.data(userDtos)
+				.build();
 
 		return ResponseEntity.status(HttpStatus.OK).body(successDto);
 	}
