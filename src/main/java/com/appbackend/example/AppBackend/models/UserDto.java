@@ -14,7 +14,7 @@ public class UserDto {
 	private String mobile;
 	private String email;
 	private int score;
-	private Boolean isApproved;
+	private String status;
 
 
 
