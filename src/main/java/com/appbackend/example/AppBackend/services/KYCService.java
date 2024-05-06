@@ -340,6 +340,7 @@ public class KYCService {
                 long eligibleAmount = userCredit.getUserLoanEligibility().getEligibilityAmount();
                 Double availableAmount =  userCredit.getAvailableBalance();
                 double utilizeAmount = eligibleAmount - availableAmount;
+
                 map.put("eligibleAmount" , eligibleAmount);
                 map.put("utilizeAmount" , utilizeAmount);
                 map.put("availableAmount" , availableAmount);

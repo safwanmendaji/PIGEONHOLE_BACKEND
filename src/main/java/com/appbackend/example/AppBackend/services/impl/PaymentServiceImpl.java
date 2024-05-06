@@ -244,31 +244,41 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) throws JsonProcessingException {
-        DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
-        if (entity != null) {
-            if(dto.isApprove()){
-                entity.setApprovedForTravel(true);
-                processTravelDisbursement(dto , entity);
-            }else{
-                entity.setApprovedForTravel(false);
-                entity.setTravelDeclineReason(dto.getReason());
+        try {
+            DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
+            if (entity != null) {
+                if (dto.isApprove()) {
+                    entity.setApprovedForTravel(true);
+                    processTravelDisbursement(dto, entity);
+                } else {
+                    entity.setApprovedForTravel(false);
+                    entity.setTravelDeclineReason(dto.getReason());
+                }
+                disbursementsRepository.save(entity);
+                String message = "Record with ID " + dto.getId() + " approved for travel.";
+                SuccessDto successDto = SuccessDto.builder()
+                        .message(message)
+                        .code(HttpStatus.OK.value())
+                        .status("APPROVED")
+                        .data(null)
+                        .build();
+                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+            } else {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .message("Record with ID " + dto.getId() + " not found.")
+                        .code(HttpStatus.NOT_FOUND.value())
+                        .status("ERROR")
+                        .build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
             }
-            disbursementsRepository.save(entity);
-            String message = "Record with ID " + dto.getId() + " approved for travel.";
-            SuccessDto successDto = SuccessDto.builder()
-                    .message(message)
-                    .code(HttpStatus.OK.value())
-                    .status("APPROVED")
-                    .data(null)
-                    .build();
-            return ResponseEntity.status(HttpStatus.OK).body(successDto);
-        } else {
+        }catch (Exception e){
             ErrorDto errorDto = ErrorDto.builder()
-                    .message("Record with ID " + dto.getId() + " not found.")
-                    .code(HttpStatus.NOT_FOUND.value())
+                    .message("Some thing when wrong. " + e.getMessage())
+                    .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
                     .status("ERROR")
                     .build();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+
         }
     }
 
