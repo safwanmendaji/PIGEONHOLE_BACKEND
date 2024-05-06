@@ -63,12 +63,14 @@ public class DashBoardServiceImpl implements DashBoardService {
 			String lastName = user.getLastName();
 			String mobile = user.getPhoneNumber();
 			String email = user.getEmail();
+			Boolean isApproved = user.getIsApproved();
+
 
 
 			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
 			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
 
-			return new UserDto(userId, firstName, lastName, mobile, email, score);
+			return new UserDto(userId, firstName, lastName, mobile, email, score,isApproved);
 		}).collect(Collectors.toList());
 		SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
 				.message("DATA GET SUCCESSFULLY.").data(userDtos).build();
