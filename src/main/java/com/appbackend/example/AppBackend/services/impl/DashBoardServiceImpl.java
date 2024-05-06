@@ -191,67 +191,75 @@ public class DashBoardServiceImpl implements DashBoardService {
 	public ResponseEntity<?> updateUserKyc(UserKYCDto userKycDto) {
 		try {
 			boolean updateEligibilityAmount = false;
+			String message = "";
 			Optional<KYC> optionalKyc = kycRepository.findById(userKycDto.getUserId());
 			if (optionalKyc.isPresent()) {
-
 				creditScoreService.getCreditScore(userKycDto);
+				CreditScore creditScore = creditScoreRepository.findByUserId(userKycDto.getUserId())
+						.orElseThrow(() -> new UsernameNotFoundException("CreditScore Not Found With This User_id: " + userKycDto.getUserId()));
+				int signum = Double.compare(creditScore.getTotalExposure(), 0);
 
-				if (userKycDto.getLoanEligibility() != 0) {
-					UserLoanEligibility userLoanEligibility;
+				if (signum > 0) {
 
-					User user = userRepository.findByid(userKycDto.getUserId())
-							.orElseThrow(() -> new UsernameNotFoundException("User not found with this id: " + userKycDto.getUserId()));
-					LoanEligibility loanEligibility = loanEligibilityRepository.findById(userKycDto.getLoanEligibility())
-							.orElseThrow(() -> new UsernameNotFoundException("LoanEligibility not found with this id: " + userKycDto.getLoanEligibility()));
-					CreditScore creditScore = creditScoreRepository.findByUserId(userKycDto.getUserId())
-							.orElseThrow(() -> new UsernameNotFoundException("CreditScore Not Found With This User_id: " + userKycDto.getUserId()));
+					if (userKycDto.getLoanEligibility() != 0) {
+						UserLoanEligibility userLoanEligibility;
 
-					Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(user.getId());
-					long oldEligibilityAmount = 0;
-					long newEligibilityAmount = 0;
+						User user = userRepository.findByid(userKycDto.getUserId())
+								.orElseThrow(() -> new UsernameNotFoundException("User not found with this id: " + userKycDto.getUserId()));
+						LoanEligibility loanEligibility = loanEligibilityRepository.findById(userKycDto.getLoanEligibility())
+								.orElseThrow(() -> new UsernameNotFoundException("LoanEligibility not found with this id: " + userKycDto.getLoanEligibility()));
 
-					if (loanEligibilityOptional.isPresent()) {
-						userLoanEligibility = loanEligibilityOptional.get();
-						oldEligibilityAmount = userLoanEligibility.getEligibilityAmount();
-					} else {
-						userLoanEligibility = new UserLoanEligibility();
+						Optional<UserLoanEligibility> loanEligibilityOptional = userLoanEligibilityRepository.getByUserId(user.getId());
+						long oldEligibilityAmount = 0;
+						long newEligibilityAmount = 0;
+
+						if (loanEligibilityOptional.isPresent()) {
+							userLoanEligibility = loanEligibilityOptional.get();
+							oldEligibilityAmount = userLoanEligibility.getEligibilityAmount();
+						} else {
+							userLoanEligibility = new UserLoanEligibility();
+
+						}
+						userLoanEligibility.setEligibility(loanEligibility);
+						userLoanEligibility.setUser(user);
+
+						newEligibilityAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure());
+
+						if (newEligibilityAmount != oldEligibilityAmount) {
+							userLoanEligibility.setOldEligibilityAmount(oldEligibilityAmount);
+							updateEligibilityAmount = true;
+						}
+
+						userLoanEligibility.setEligibilityAmount(calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure()));
+						userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
+
+
+						UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(user.getId());
+
+						if (userCredit == null) {
+							userCredit = new UtilizeUserCredit();
+							userCredit.setUserLoanEligibility(userLoanEligibility);
+							userCredit.setAvailableBalance((double) loanEligibility.getEndAmount());
+							userCredit.setUtilizeBalance(0.0);
+							userCredit.setUser(user);
+							utilizeUserCreditRepository.save(userCredit);
+						} else if (updateEligibilityAmount) {
+							long increaseAmount = (userKycDto.getEligibilityAmount() != null
+									? userKycDto.getEligibilityAmount()
+									: loanEligibility.getEndAmount()) - oldEligibilityAmount;
+							double availableAmount = userCredit.getAvailableBalance();
+							userCredit.setAvailableBalance(availableAmount + increaseAmount);
+							utilizeUserCreditRepository.save(userCredit);
+						}
 
 					}
-					userLoanEligibility.setEligibility(loanEligibility);
-					userLoanEligibility.setUser(user);
-
-					newEligibilityAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure());
-
-					if (newEligibilityAmount != oldEligibilityAmount) {
-						userLoanEligibility.setOldEligibilityAmount(oldEligibilityAmount);
-						updateEligibilityAmount = true;
-					}
-
-					userLoanEligibility.setEligibilityAmount(calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure()));
-					userLoanEligibility = userLoanEligibilityRepository.save(userLoanEligibility);
-
-
-					UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(user.getId());
-
-					if (userCredit == null) {
-						userCredit = new UtilizeUserCredit();
-						userCredit.setUserLoanEligibility(userLoanEligibility);
-						userCredit.setAvailableBalance((double) loanEligibility.getEndAmount());
-						userCredit.setUtilizeBalance(0.0);
-						userCredit.setUser(user);
-						utilizeUserCreditRepository.save(userCredit);
-					} else if (updateEligibilityAmount) {
-						long increaseAmount = (userKycDto.getEligibilityAmount() != null
-								? userKycDto.getEligibilityAmount()
-								: loanEligibility.getEndAmount()) - oldEligibilityAmount;
-						double availableAmount = userCredit.getAvailableBalance();
-						userCredit.setAvailableBalance(availableAmount + increaseAmount);
-						utilizeUserCreditRepository.save(userCredit);
-					}
-
+					message = "KYC UPDATED SUCCESSFULLY.";
+				}else{
+					message = "KYC UPDATED SUCCESSFULLY. SORRY, THIS USER ARE NOT ELIGIBLE FOR LOAN.";
 				}
+
 				SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Success")
-						.message("KYC UPDATED SUCCESSFULLY.").build();
+						.message(message).build();
 				return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
 
@@ -270,7 +278,8 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	private Long calculateEligibilityBasedOnExposer(Long levelAmount, Float exposure) {
 		double multiplyAmount = levelAmount * exposure;
-		return Long.parseLong(String.valueOf(multiplyAmount / 100));
+		double calculation = multiplyAmount / 100;
+		return (long)  calculation;
 
 	}
 
