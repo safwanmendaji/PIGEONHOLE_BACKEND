@@ -2,8 +2,8 @@ package com.appbackend.example.AppBackend.services;
 
 
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
+import com.appbackend.example.AppBackend.models.UserDtoForUpdate;
 import com.appbackend.example.AppBackend.models.UserKYCDto;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
 public interface DashBoardService {
@@ -25,4 +25,7 @@ public interface DashBoardService {
 	ResponseEntity<?> approvedUser();
 
 
+	ResponseEntity<?> updateUser(UserDtoForUpdate user, int id);
+
+	ResponseEntity<?> getUserById(int id);
 }

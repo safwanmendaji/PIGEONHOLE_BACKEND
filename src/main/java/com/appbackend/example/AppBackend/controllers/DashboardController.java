@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
+import com.appbackend.example.AppBackend.models.UserDtoForUpdate;
 import com.appbackend.example.AppBackend.security.JwtHelper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.java.Log;
@@ -95,8 +96,14 @@ public class DashboardController {
 		return dashboardService.approvedUser();
 	}
 
+	@GetMapping("/users/{id}")
+	public ResponseEntity<?> getUserById(@PathVariable int id){
+		return dashboardService.getUserById(id);
+	}
 
-
-
+	@PutMapping("/user/update/{id}")
+	public ResponseEntity<?> updateUser(@RequestBody UserDtoForUpdate userUpdateDto, @PathVariable int id){
+		return dashboardService.updateUser(userUpdateDto,id);
+	}
 
 }
