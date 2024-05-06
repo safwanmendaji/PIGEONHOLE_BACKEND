@@ -344,7 +344,6 @@ public class DashBoardServiceImpl implements DashBoardService {
 				user.setEmail(userDtoForUpdate.getEmail());
 				userRepository.save(user);
 
-				// Return a success response using SuccessDto
 				SuccessDto successResponse = SuccessDto.builder()
 						.code(HttpStatus.OK.value())
 						.status("Success")
@@ -362,7 +361,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
 		}
 	}
 
@@ -384,7 +383,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 				SuccessDto successResponse = SuccessDto.builder()
 						.code(HttpStatus.OK.value())
 						.status("Success")
-						.message("User found")
+						.message("User Deatials ")
 						.data(userDto)
 						.build();
 				return ResponseEntity.ok(successResponse);
@@ -398,7 +397,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
 		}
 	}
 
