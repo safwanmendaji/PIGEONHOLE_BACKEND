@@ -14,7 +14,7 @@
     <name>AppBackend</name>
     <description>Demo project for Spring Boot</description>
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
     </properties>
     <dependencies>
         <dependency>
@@ -68,6 +68,35 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+
+
+<!--        &lt;!&ndash; https://mvnrepository.com/artifact/software.amazon.awssdk/s3 &ndash;&gt;-->
+<!--        <dependency>-->
+<!--            <groupId>software.amazon.awssdk</groupId>-->
+<!--            <artifactId>s3</artifactId>-->
+<!--            <version>2.25.45</version>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
+
+
+        <!-- https://mvnrepository.com/artifact/software.amazon.awssdk/sdk-core -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sdk-core</artifactId>
+            <version>2.25.45</version>
+        </dependency>
+
+
+        <!-- https://mvnrepository.com/artifact/com.amazonaws/aws-java-sdk-s3 -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>1.12.656</version>
+        </dependency>
+
+
+
 
 
     </dependencies>
