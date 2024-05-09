@@ -58,25 +58,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	@Transactional
 	public ResponseEntity<?> getAllUsers() {
 		List<User> users = userRepository.findAll();
-		List<UserDto> userDtos = users.stream().map(user -> {
-			int userId = user.getId();
-			String firstName = user.getFirstName();
-			String lastName = user.getLastName();
-			String mobile = user.getPhoneNumber();
-			String email = user.getEmail();
-
-
-			String status = "";
-			Optional<KYC> optionalKyc = kycRepository.findByUserId(userId);
-			if (optionalKyc.isPresent()) {
-				status = optionalKyc.get().getStatus();
-			}
-
-			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
-			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
-
-			return new UserDto(userId, firstName, lastName, mobile, email, score, status);
-		}).collect(Collectors.toList());
+		List<UserDto> userDtos = getUserDtos(users , false);
 
 		SuccessDto successDto = SuccessDto.builder()
 				.code(HttpStatus.OK.value())
@@ -132,6 +114,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 				Integer arrearsamountdefault = null;
 				Integer daysinarrearspaymenthistory = null;
 				Integer blackList = null;
+				Integer priorityClient = null;
+
+
 				if (optionalCreditScore.isPresent()) {
 					CreditScore creditScore = optionalCreditScore.get();
 					score = creditScore.getTotalCreditScore();
@@ -162,6 +147,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 					blackList = creditScore.getBlacklisted() != null
 							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getBlacklisted())
 							: null;
+					priorityClient = creditScore.getPriorityClient() != null
+							? CreditScoreService.findOldKycCalculationIdValue(creditScore.getPriorityClient())
+							: null;
 				}
 
 //				UserKYCDto userKYCDto = new UserKYCDto(reschedule, occupation, departments, security,
@@ -176,7 +164,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 						firstName, lastName, mobile, email, score, isApproved, dob, address, maritalStatus, kin, kinNumber, kin1, kin1Number,
 						nationalId, gender, age, documentData, userImage, digitalSignature, reschedule, occupation, departments, security,
 						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears, arrearsamountdefault,
-						daysinarrearspaymenthistory, blackList, status
+						daysinarrearspaymenthistory, blackList, status , priorityClient
 				);
 
 				if (userLoanEligibility != null) {
@@ -342,15 +330,51 @@ public class DashBoardServiceImpl implements DashBoardService {
 	}
 
 	@Override
+	@Transactional
+
 	public ResponseEntity<?> approvedUser() {
-		try {
+
 			List<User> userApproved = userRepository.findByIsApproved(true);
-			return ResponseEntity.ok(userApproved);
-		} catch (Exception ex) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred while fetching user status.");
-		}
+			System.out.println("Size ::: " + userApproved.size());
+		List<UserDto> userDtos = getUserDtos(userApproved , true);
+
+		SuccessDto successResponse = SuccessDto.builder()
+					.code(HttpStatus.OK.value())
+					.status("Success")
+					.message("ACTIVE USERS")
+					.data(userDtos)
+					.build();
+			return ResponseEntity.status(HttpStatus.OK).body(successResponse);
+//		} catch (Exception ex) {
+//			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred while fetching user status.");
+//		}
 
 
+	}
+
+	private List<UserDto> getUserDtos(List<User> userApproved , boolean approve) {
+		List<UserDto> userDtos = userApproved.stream().map(user -> {
+			int userId = user.getId();
+			String firstName = user.getFirstName();
+			String lastName = user.getLastName();
+			String mobile = user.getPhoneNumber();
+			String email = user.getEmail();
+
+
+			String status = "";
+
+			Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
+			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
+
+
+				Optional<KYC> optionalKyc = kycRepository.findByUserId(userId);
+				if (optionalKyc.isPresent()) {
+					status = optionalKyc.get().getStatus();
+				}
+				return new UserDto(userId, firstName, lastName, mobile, email, score, status);
+
+		}).collect(Collectors.toList());
+		return userDtos;
 	}
 
 	public ResponseEntity<?> updateUser(UserDtoForUpdate userDtoForUpdate, int id) {

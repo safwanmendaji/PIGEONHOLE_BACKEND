@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 
-//@Repository
+@Repository
 public interface UserRepository extends JpaRepository<User, Integer> {
 
 

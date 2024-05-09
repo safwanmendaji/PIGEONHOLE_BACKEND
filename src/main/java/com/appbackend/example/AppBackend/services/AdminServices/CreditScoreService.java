@@ -361,15 +361,15 @@ public class CreditScoreService {
             String loanHistoryLoansWithArrearsString="";
             String loanHistoryLoansWithoutArrearsString ="";
 
-            if(creditScoreDtoDemo.getBlacklisted() != null) {
-                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("BLACKLISTED");
+            if(creditScoreDtoDemo.getBlacklisted() != null && creditScoreDtoDemo.getBlacklisted() != 0) {
+                List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("BLACK LISTED");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getBlacklisted());
                 blacklistedCreditScore = calculateNegativeCreditScore(score, -10);
                 blacklistedCreditScoreString = makeCreditScoreOjb(score, -10, blacklistedCreditScore , creditScoreDtoDemo.getBlacklisted());
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getWorkPlaceDepartment() != null) {
+            if(creditScoreDtoDemo.getWorkPlaceDepartment() != null && creditScoreDtoDemo.getWorkPlaceDepartment() !=0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("DEPARTMENTS");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getWorkPlaceDepartment());
                 workPlaceDepartmentCreditScore = calculateCommonCreditScore(score, 5);
@@ -377,7 +377,7 @@ public class CreditScoreService {
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getOccupation() != null) {
+            if(creditScoreDtoDemo.getOccupation() != null && creditScoreDtoDemo.getOccupation() !=0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("OCCUPATION");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getOccupation());
                 occupationCreditScore = calculateCommonCreditScore(score, 1);
@@ -385,7 +385,7 @@ public class CreditScoreService {
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getAmountInArrears() != null) {
+            if(creditScoreDtoDemo.getAmountInArrears() != null && creditScoreDtoDemo.getAmountInArrears() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("ARREARS AMOUNT (DEFAULT)");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getAmountInArrears());
                 amountInArrears = calculateNegativeCreditScore(score, -10);
@@ -393,7 +393,7 @@ public class CreditScoreService {
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getDaysInArreas() != null) {
+            if(creditScoreDtoDemo.getDaysInArreas() != null && creditScoreDtoDemo.getDaysInArreas() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("DAYS IN ARREARS (PAYMENT HISTORY)");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getDaysInArreas());
                 daysInArrears = calculateCommonCreditScore(score, 10);
@@ -401,7 +401,7 @@ public class CreditScoreService {
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getRescheduleHistory() != null) {
+            if(creditScoreDtoDemo.getRescheduleHistory() != null && creditScoreDtoDemo.getRescheduleHistory() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("RESCHEDULE");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getRescheduleHistory());
                 rescheduleHistory = calculateCommonCreditScore(score, 1);
@@ -409,17 +409,21 @@ public class CreditScoreService {
                 totalCreditScore += score;
             }
 
-            if(creditScoreDtoDemo.getPriorityClient() != null) {
+            if(creditScoreDtoDemo.getPriorityClient() != null && creditScoreDtoDemo.getPriorityClient() != 0) {
+//                System.out.println("Priority Client :::: " + creditScoreDtoDemo.getPriorityClient());
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("PRIORITY CLIENT");
+//                System.out.println("List Of Size ::: " + kycCalculationDetails.size());
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getPriorityClient());
-
+//                System.out.println("Score  :::: " + score);
                 priorityClient = calculateCommonCreditScore(score, 15);
+//                System.out.println("priorityClient  :::: " + score);
                 priorityClientString = makeCreditScoreOjb(score, 15, priorityClient , creditScoreDtoDemo.getPriorityClient());
+//                System.out.println("priorityClientString  :::: " + score);
                 totalCreditScore += score;
 
             }
 
-            if(creditScoreDtoDemo.getSecurity() != null) {
+            if(creditScoreDtoDemo.getSecurity() != null && creditScoreDtoDemo.getSecurity() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("SECURITY");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getSecurity());
 
@@ -429,7 +433,7 @@ public class CreditScoreService {
 
             }
 
-            if(creditScoreDtoDemo.getLoanHistoryLoansWithArrears() != null) {
+            if(creditScoreDtoDemo.getLoanHistoryLoansWithArrears() != null && creditScoreDtoDemo.getLoanHistoryLoansWithArrears() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("LOAN HISTORY (COMPLETED LOANS WITH ARREARS) (NEGATIVE)");
                 int score  = getScore(kycCalculationDetails, creditScoreDtoDemo.getLoanHistoryLoansWithArrears());
                 loanHistoryLoansWithArrears = calculateNegativeCreditScore(score, -60);
@@ -439,7 +443,7 @@ public class CreditScoreService {
             }
 
 
-            if(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() != null) {
+            if(creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() != null && creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears() != 0) {
                 List<KycCalculationDetails> kycCalculationDetails = groupedByWorkplace.get("LOAN HISTORY (COMPLETED LOANS WITH OUT ARREARS) (POSITIVE)");
                 int score = getScore(kycCalculationDetails, creditScoreDtoDemo.getLoanHistoryLoansWithOutArrears());
                 loanHistoryLoansWithoutArrears = calculateCommonCreditScore(score, 60);

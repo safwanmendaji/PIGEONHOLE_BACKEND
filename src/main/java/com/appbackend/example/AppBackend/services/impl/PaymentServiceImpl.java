@@ -6,9 +6,7 @@ import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.entities.UtilizeUserCredit;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
-import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
-import com.appbackend.example.AppBackend.models.ErrorDto;
-import com.appbackend.example.AppBackend.models.SuccessDto;
+import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepository;
@@ -26,7 +24,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import com.appbackend.example.AppBackend.models.PaymentDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -100,12 +97,12 @@ public class PaymentServiceImpl implements PaymentService {
            UUID uuid = UUID.randomUUID();
            paymentDto.setReference(uuid);
 
-           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
-               buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
-               SuccessDto successDto = SuccessDto.builder()
-                       .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
-               return ResponseEntity.status(HttpStatus.OK).body(successDto);
-           }else {
+//           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
+//               buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
+//               SuccessDto successDto = SuccessDto.builder()
+//                       .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
+//               return ResponseEntity.status(HttpStatus.OK).body(successDto);
+//           }else {
                DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
 
                disbursementsHistory = processDisbursements(paymentDto, user , userCredit , disbursementsHistory);
@@ -113,7 +110,7 @@ public class PaymentServiceImpl implements PaymentService {
                SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
 
                return ResponseEntity.status(HttpStatus.OK).body(successDto);
-           }
+//           }
         } catch (Exception ex) {
            ErrorDto errorDto = ErrorDto.builder()
                    .code(HttpStatus.NOT_FOUND.value())
@@ -211,16 +208,65 @@ public class PaymentServiceImpl implements PaymentService {
     public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
         List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
 
+
         Map<String, List<DisbursementsHistory>> groupedData = allDisbursements.stream()
                 .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
 
 
+        Map<String, List<DisbursementHistoryDTO>> groupedDtoData = groupedData.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry ->
+                        entry.getValue().stream()
+                                .map(disbursement -> {
+                                    DisbursementHistoryDTO dto = new DisbursementHistoryDTO();
+                                    dto.setId(disbursement.getId());
+                                    dto.setUserId(disbursement.getUserId());
+                                    dto.setDisbursementsType(disbursement.getDisbursementsType());
+                                    dto.setAmount(disbursement.getAmount());
+                                    dto.setDisbursementsTransactionId(disbursement.getDisbursementsTransactionId());
+                                    dto.setDisbursementsResponse(disbursement.getDisbursementsResponse());
+                                    dto.setPaymentStatus(disbursement.getPaymentStatus());
+                                    dto.setStudentCode(disbursement.getStudentCode());
+                                    dto.setStudentName(disbursement.getStudentName());
+                                    dto.setSchoolName(disbursement.getSchoolName());
+                                    dto.setStudentClass(disbursement.getStudentClass());
+                                    dto.setOutstandingFees(disbursement.getOutstandingFees());
+                                    dto.setTeamLeadName(disbursement.getTeamLeadName());
+                                    dto.setTeamLeadContactNumber(disbursement.getTeamLeadContactNumber());
+                                    dto.setDisbursementsRequest(disbursement.getDisbursementsRequest());
+                                    dto.setStartDate(disbursement.getStartDate());
+                                    dto.setEndDate(disbursement.getEndDate());
+                                    dto.setDestination(disbursement.getDestination());
+                                    dto.setReferenceId(disbursement.getReferenceId());
+                                    dto.setNarration(disbursement.getNarration());
+                                    dto.setApprovedForTravel(disbursement.isApprovedForTravel());
+                                    dto.setDocument(disbursement.getDocument());
+                                    dto.setTravelDeclineReason(disbursement.getTravelDeclineReason());
+                                    dto.setReason(disbursement.getReason());
+                                    dto.setDisbursementFailReason(disbursement.getDisbursementFailReason());
+                                    dto.setApprovedBy(disbursement.getApprovedBy());
+                                    dto.setApprovedOn(disbursement.getApprovedOn());
+                                    dto.setUpdateBy(disbursement.getUpdateBy());
+                                    dto.setUpdateOn(disbursement.getUpdateOn());
+                                    dto.setCreatedBy(disbursement.getCreatedBy());
+                                    dto.setCreatedOn(disbursement.getCreatedOn());
+
+
+                                    User user = userRepository.findById(disbursement.getUserId()).orElse(null);
+                                    if (user != null) {
+                                        dto.setUsername(user.getFirstName());
+                                        dto.setMobile(user.getPhoneNumber());
+                                        dto.setEmail(user.getEmail());
+                                    }
+
+                                    return dto;
+                                })
+                                .collect(Collectors.toList())));
 
         SuccessDto successDto = SuccessDto.builder()
                 .message("Disbursement transaction status")
                 .code(HttpStatus.OK.value())
                 .status("SUCCESS")
-                .data(groupedData)
+                .data(groupedDtoData)
                 .build();
 
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
@@ -246,31 +292,31 @@ public class PaymentServiceImpl implements PaymentService {
     public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) throws JsonProcessingException {
         try {
             DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
-            if (entity != null) {
-                if (dto.isApprove()) {
-                    entity.setApprovedForTravel(true);
-                    processTravelDisbursement(dto, entity);
-                } else {
-                    entity.setApprovedForTravel(false);
-                    entity.setTravelDeclineReason(dto.getReason());
-                }
-                disbursementsRepository.save(entity);
-                String message = "Record with ID " + dto.getId() + " approved for travel.";
-                SuccessDto successDto = SuccessDto.builder()
-                        .message(message)
-                        .code(HttpStatus.OK.value())
-                        .status("APPROVED")
-                        .data(null)
-                        .build();
-                return ResponseEntity.status(HttpStatus.OK).body(successDto);
-            } else {
-                ErrorDto errorDto = ErrorDto.builder()
-                        .message("Record with ID " + dto.getId() + " not found.")
-                        .code(HttpStatus.NOT_FOUND.value())
-                        .status("ERROR")
-                        .build();
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-            }
+//            if (entity != null) {
+//                if (dto.isApprove()) {
+//                    entity.setApprovedForTravel(true);
+//                    processTravelDisbursement(dto, entity);
+//                } else {
+//                    entity.setApprovedForTravel(false);
+//                    entity.setTravelDeclineReason(dto.getReason());
+//                }
+//                disbursementsRepository.save(entity);
+//                String message = "Record with ID " + dto.getId() + " approved for travel.";
+//                SuccessDto successDto = SuccessDto.builder()
+//                        .message(message)
+//                        .code(HttpStatus.OK.value())
+//                        .status("APPROVED")
+//                        .data(null)
+//                        .build();
+//                return ResponseEntity.status(HttpStatus.OK).body(successDto);
+//            } else {
+//                ErrorDto errorDto = ErrorDto.builder()
+//                        .message("Record with ID " + dto.getId() + " not found.")
+//                        .code(HttpStatus.NOT_FOUND.value())
+//                        .status("ERROR")
+//                        .build();
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+//            }
         }catch (Exception e){
             ErrorDto errorDto = ErrorDto.builder()
                     .message("Some thing when wrong. " + e.getMessage())
@@ -280,6 +326,7 @@ public class PaymentServiceImpl implements PaymentService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
 
         }
+        return null;
     }
 
     @Override

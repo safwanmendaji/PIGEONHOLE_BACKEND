@@ -65,7 +65,7 @@ public class UserKYCDto{
 					  byte[] userImage, byte[] digitalSignature , Integer reschedule ,  Integer occupation,Integer departments,
 					  Integer security,   Integer loanhistorycompletedloanswitharrearsnegative , Integer loanhistorycompletedloanswithoutarrears
 					, Integer arrearsamountdefault, Integer daysinarrearspaymenthistor,
-					  Integer blacklisted , String status
+					  Integer blacklisted , String status , Integer priorityClient
 
 	) {
 		this.firstName = firstName;
@@ -97,6 +97,7 @@ public class UserKYCDto{
 		this.digitalSignature = digitalSignature;
 		this.blacklisted = blacklisted;
 		this.status =status;
+		this.priorityClient = priorityClient;
 	}
 
 }
