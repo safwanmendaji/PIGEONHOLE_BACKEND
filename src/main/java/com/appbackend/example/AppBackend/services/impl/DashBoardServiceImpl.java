@@ -239,14 +239,12 @@ public class DashBoardServiceImpl implements DashBoardService {
 						if (userCredit == null) {
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
-							userCredit.setAvailableBalance((double) loanEligibility.getEndAmount());
+							userCredit.setAvailableBalance((double) calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() ,  creditScore.getTotalExposure()));
 							userCredit.setUtilizeBalance(0.0);
 							userCredit.setUser(user);
 							utilizeUserCreditRepository.save(userCredit);
 						} else if (updateEligibilityAmount) {
-							long increaseAmount = (userKycDto.getEligibilityAmount() != null
-									? userKycDto.getEligibilityAmount()
-									: loanEligibility.getEndAmount()) - oldEligibilityAmount;
+							long increaseAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() , creditScore.getTotalExposure()) - oldEligibilityAmount;
 							double availableAmount = userCredit.getAvailableBalance();
 							userCredit.setAvailableBalance(availableAmount + increaseAmount);
 							utilizeUserCreditRepository.save(userCredit);
