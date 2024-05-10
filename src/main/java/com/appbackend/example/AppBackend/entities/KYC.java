@@ -55,14 +55,14 @@ public class KYC implements Serializable {
     private String reason;
 
 
-    @Lob
-    private byte[] documentData;
 
-    @Lob
-    private byte[] userImage;
+    private String documentData;
 
-    @Lob
-    private byte[] digitalSignature;
+
+    private String  userImage;
+
+
+    private String digitalSignature;
 
 
 //

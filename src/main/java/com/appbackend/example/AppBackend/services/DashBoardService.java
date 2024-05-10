@@ -28,4 +28,6 @@ public interface DashBoardService {
 	ResponseEntity<?> updateUser(UserDtoForUpdate user, int id);
 
 	ResponseEntity<?> getUserById(int id);
+
+	ResponseEntity<?> deleteUser(int id);
 }

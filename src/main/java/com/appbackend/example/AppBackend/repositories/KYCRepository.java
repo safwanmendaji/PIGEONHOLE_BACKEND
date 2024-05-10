@@ -18,5 +18,5 @@ public interface KYCRepository extends JpaRepository<KYC, Integer> {
 	Optional<KYC> findByUserId(int id);
 
 
-
+    void deleteByUserId(int userId);
 }

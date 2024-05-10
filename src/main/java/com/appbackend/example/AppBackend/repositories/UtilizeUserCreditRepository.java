@@ -19,4 +19,6 @@ public interface UtilizeUserCreditRepository extends JpaRepository<UtilizeUserCr
 
 
     UtilizeUserCredit findByHistoryId(Integer id);
+
+    void deleteByUserId(int userId);
 }

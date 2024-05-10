@@ -25,7 +25,7 @@ import java.util.Base64;
 public class OtpService {
 
     @Autowired
-    private JavaMailSender javaMailSender;
+    private  JavaMailSender javaMailSender;
 
     @Autowired
     private UserRepository userRepository;
@@ -40,6 +40,7 @@ public class OtpService {
     private String smsUserName;
 
     private AuthenticationEntryPoint authenticationEntryPoint;
+
 
 
 //    private User user;
@@ -140,7 +141,7 @@ public class OtpService {
     }
 
 
-    public void sendEmail(String to, String subject, String body) {
+    public  void sendEmail(String to, String subject, String body) {
         try {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, true);
@@ -203,6 +204,12 @@ public class OtpService {
         } finally {
             request.disconnect();
         }
+    }
+
+    public  void sendReferCodeViaEmail(String email, String encryptedString) {
+        String subject = "Refer code";
+        String body = "Your Refer Code" + encryptedString;
+        sendEmail(email, subject, body);
     }
 
 

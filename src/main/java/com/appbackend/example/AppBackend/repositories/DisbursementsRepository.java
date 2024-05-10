@@ -17,4 +17,6 @@ public interface DisbursementsRepository extends JpaRepository<DisbursementsHist
     List<DisbursementsHistory> findByUserId(Integer userId);
 
     List<DisbursementsHistory> findByPaymentStatus(String pending);
+
+    void deleteByUserId(int userId);
 }

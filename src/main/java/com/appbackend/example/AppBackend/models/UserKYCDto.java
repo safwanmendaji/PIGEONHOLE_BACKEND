@@ -50,19 +50,19 @@ public class UserKYCDto{
 
 	private Integer loanHistoryLoansWithOutArrears;
 
-	private byte[] documentData;
+	private String documentData;
 
-	private byte[] userImage;
+	private String userImage;
 
-	private byte[] digitalSignature;
+	private String digitalSignature;
 	private int loanEligibility;
 	private Long eligibilityAmount;
 	private String status;
 
 	public UserKYCDto(String firstName, String lastName ,String mobile, String email, int score, boolean isApproved, String dob, String address,
 					  String maritalStatus, String kin, String kinNumber, String kin1, String kin1Number, String nationalId,
-					  String gender, String age,byte[] documentData,
-					  byte[] userImage, byte[] digitalSignature , Integer reschedule ,  Integer occupation,Integer departments,
+					  String gender, String age,String documentData,
+					  String userImage, String digitalSignature , Integer reschedule ,  Integer occupation,Integer departments,
 					  Integer security,   Integer loanhistorycompletedloanswitharrearsnegative , Integer loanhistorycompletedloanswithoutarrears
 					, Integer arrearsamountdefault, Integer daysinarrearspaymenthistor,
 					  Integer blacklisted , String status , Integer priorityClient

@@ -106,4 +106,9 @@ public class DashboardController {
 		return dashboardService.updateUser(userUpdateDto,id);
 	}
 
+	@DeleteMapping("/delete/user/{id}")
+	public ResponseEntity<?> deleteUser(@PathVariable int id){
+		return dashboardService.deleteUser(id);
+	}
+
 }

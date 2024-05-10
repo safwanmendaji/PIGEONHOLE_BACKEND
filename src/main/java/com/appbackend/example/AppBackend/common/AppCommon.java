@@ -12,11 +12,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.util.Base64;
+
+import java.security.Key;
+
 @Component
 public class AppCommon {
     private final RestTemplate restTemplate;
     private final String username;
     private final String password;
+
 
     public AppCommon(RestTemplate restTemplate, @Value("${payment.username}") String username,
                      @Value("${payment.password}") String password) {
@@ -25,7 +36,7 @@ public class AppCommon {
         this.password = password;
     }
 
-    private String getPigeonToken(HttpHeaders headers){
+    private String getPigeonToken(HttpHeaders headers) {
         restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
 
         String requestBody = "{\"username\": \"" + username + "\", \"password\": \"" + password + "\"}";
@@ -38,7 +49,7 @@ public class AppCommon {
 
             String tokenResponse = tokenResponseEntity.getBody();
             return tokenResponse;
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
@@ -55,4 +66,52 @@ public class AppCommon {
         headers.setBearerAuth(accessToken);
         return headers;
     }
+
+    private static final String SECRET_KEY = "pigeonhole123567"; // 16 bytes for AES-128
+
+    public static String encrypt(String data) throws Exception {
+        Key key = generateKey();
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // Specify mode and padding
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(encryptedBytes);
+    }
+
+    public static String decrypt(String encryptedData) throws Exception {
+        Key key = generateKey();
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding"); // Specify mode and padding
+        cipher.init(Cipher.DECRYPT_MODE, key);
+        byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
+        byte[] decryptedBytes = cipher.doFinal(decodedBytes);
+        return new String(decryptedBytes, StandardCharsets.UTF_8);
+    }
+
+    private static Key generateKey() {
+        byte[] keyBytes = SECRET_KEY.getBytes(StandardCharsets.UTF_8);
+        return new SecretKeySpec(keyBytes, "AES");
+    }
+
+
+    public String verifyReferenceCode(String encryptedReferCode, String email, String mobile) {
+        try {
+            String decryptedReferCode = decrypt(encryptedReferCode);
+            String[] parts = decryptedReferCode.split("\\|");
+            if (parts.length == 2) {
+                String decryptedEmail = parts[0];
+                String decryptedMobile = parts[1];
+                if (decryptedEmail.equals(email) && decryptedMobile.equals(mobile)) {
+                    return "Reference code verified successfully.";
+                } else {
+                    return "Reference code is invalid.";
+                }
+            } else {
+                return "Invalid format of reference code.";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error verifying reference code.";
+        }
+    }
+
 }
+

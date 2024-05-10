@@ -1,5 +1,6 @@
 package com.appbackend.example.AppBackend.config;
 
+import com.appbackend.example.AppBackend.common.AppCommon;
 import com.appbackend.example.AppBackend.entities.KYC;
 import com.appbackend.example.AppBackend.entities.RefreshToken;
 import com.appbackend.example.AppBackend.entities.Role;
@@ -8,9 +9,11 @@ import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.RefreshTokenRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
+import com.appbackend.example.AppBackend.services.KYCService;
 import com.appbackend.example.AppBackend.services.OtpService;
 import com.appbackend.example.AppBackend.services.RefreshTokenService;
 import com.appbackend.example.AppBackend.services.UserService;
+import com.appbackend.example.AppBackend.services.impl.StorageService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +39,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -69,6 +74,15 @@ public class AuthController {
 	@Autowired
 	JwtHelper jwtHelper;
 
+	@Autowired
+	AppCommon appCommon;
+
+	@Autowired
+	private KYCService kycService;
+
+	@Autowired
+	private StorageService storageService;
+
 	private Logger logger = LoggerFactory.getLogger(AuthController.class);
 
 	private Authentication authentication;
@@ -101,7 +115,7 @@ public class AuthController {
 	@Async
 	@PostMapping("/verifyotp")
 	public ResponseEntity<?> verifyUserOtp(@RequestBody OtpRequest otpRequest,
-			@CurrentSecurityContext SecurityContext context) {
+										   @CurrentSecurityContext SecurityContext context) {
 		try {
 			UserDetails userDetails = null;
 			User user = null;
@@ -205,132 +219,222 @@ public class AuthController {
 
 	}
 
-	@PostMapping(value = "/register", consumes = { MediaType.APPLICATION_JSON_VALUE,
-			MediaType.MULTIPART_FORM_DATA_VALUE })
-	public ResponseEntity<?> register(
-			@RequestParam(value = "registerRequest", required = true) String registerRequestString,
-			@RequestParam(value = "documentData", required = false) MultipartFile documentData)
-			throws JsonProcessingException {
+//	@PostMapping(value = "/register", consumes = { MediaType.APPLICATION_JSON_VALUE,
+//			MediaType.MULTIPART_FORM_DATA_VALUE })
+//	public ResponseEntity<?> register(
+//			@RequestParam(value = "registerRequest", required = true) String registerRequestString,
+//			@RequestParam(value = "documentData", required = false) MultipartFile documentData)
+//			throws JsonProcessingException {
+//
+//		ObjectMapper mapper = new ObjectMapper();
+//		RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
+//
+//		try {
+//
+//			if (registerRequest.getRole() < 1 && registerRequest.getRole() > 2) {
+//				throw new Exception("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
+//			}
+//
+//			if (registerRequest.getEmail().trim().isEmpty()) {
+//				throw new Exception("Email Field must not be null");
+//			}
+//
+//			if (registerRequest.getId() == null) {
+//				throw new Exception("ID Field must not be null");
+//			}
+//
+//			Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
+//			Optional<User> duplicatePhoneUser = userService.getUserByPhone(registerRequest.getEmail());
+//
+//			Optional<User> duplicateIdUser = userService.getUserById(registerRequest.getId());
+//
+//			if (duplicateEmailUser.isPresent()) {
+//				throw new DuplicateUserException("USER WITH THIS EMAIL ID ALREADY EXISTS");
+//			}
+//
+//			if (duplicateIdUser.isPresent()) {
+//				throw new DuplicateUserException("USER WITH THIS  ID ALREADY EXISTS");
+//			}
+//
+//			if (duplicatePhoneUser.isPresent()) {
+//				throw new DuplicateUserException("USER WITH THIS MOBILE ALREADY EXISTS");
+//			}
+//
+//			User user = User.builder().id(registerRequest.getId()).firstName(registerRequest.getFirstname())
+//					.lastName(registerRequest.getLastname()).email(registerRequest.getEmail())
+//					.password(passwordEncoder.encode(registerRequest.getPassword()))
+//					.phoneNumber(registerRequest.getPhoneNumber()).build();
+//
+//			user.setRoleByInput(registerRequest.getRole());
+//			user.setIsApproved(false);
+//				userRepository.save(user);
+//
+//			if (registerRequest.getRole() == 2) {
+//
+//				if (documentData == null) {
+//					throw new Exception("WORK ID DOCUMENT IS REQUIRED KINDLY UPLOAD IT");
+//				} else {
+//					String uploadedFileName = storageService.uploadFile(documentData);
+//
+//					// Save the URL in kycRepository
+//					KYC kyc = KYC.builder()
+//							.user(user)
+//							.id(user.getId())
+//							.documentData(uploadedFileName.getBytes()) // Assuming uploadedFileName contains the URL
+//							.build();
+//
+//					kycRepository.save(kyc);
+//
+//				}
+//			}
+//
+//			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
+//					.message("USER  HAVE BEEN SUCCESSFULLY REGISTERED").build();
+//
+//			return ResponseEntity.status(HttpStatus.OK).body(successDto);
+//
+//		} catch (DuplicateUserException e) {
+//
+//			String errorResponse = e.getMessage();
+//			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.CONFLICT.value()).status("ERROR")
+//					.message(e.getMessage()).build();
+//			return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
+//
+//		} catch (Exception e) {
+//			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
+//					.message(e.getMessage()).build();
+//			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+//		}
+//
+//	}
 
-		ObjectMapper mapper = new ObjectMapper();
-		RegisterRequest registerRequest = mapper.readValue(registerRequestString, RegisterRequest.class);
+
+	@PostMapping(value = "/register", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+	public ResponseEntity<?> register(
+			@RequestParam(value = "registerRequestString", required = false) String registerRequestString,
+			@RequestParam(value = "documentData", required = false) MultipartFile documentData,
+			@RequestParam(value = "userImage", required = false) MultipartFile userImage,
+			@RequestParam(value = "digitalSignature", required = false) MultipartFile digitalSignature) {
 
 		try {
-
-			if (registerRequest.getRole() < 1 && registerRequest.getRole() > 2) {
-				throw new Exception("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
+			if (registerRequestString == null || registerRequestString.trim().isEmpty()) {
+				throw new IllegalArgumentException("Register request data is missing.");
 			}
 
-			if (registerRequest.getEmail().trim().isEmpty()) {
-				throw new Exception("Email Field must not be null");
+			ObjectMapper objectMapper = new ObjectMapper();
+			RegisterRequest registerRequest = objectMapper.readValue(registerRequestString, RegisterRequest.class);
+
+			if (registerRequest.getRole() < 1 || registerRequest.getRole() > 2) {
+				throw new IllegalArgumentException("Invalid input. Only 1 (ADMIN) or 2 (USER) are allowed.");
+			}
+
+			if (registerRequest.getEmail() == null || registerRequest.getEmail().trim().isEmpty()) {
+				throw new IllegalArgumentException("Email field must not be null or empty.");
 			}
 
 			if (registerRequest.getId() == null) {
-				throw new Exception("ID Field must not be null");
+				throw new IllegalArgumentException("ID field must not be null.");
 			}
 
 			Optional<User> duplicateEmailUser = userService.getUserByEmail(registerRequest.getEmail());
-			Optional<User> duplicatePhoneUser = userService.getUserByPhone(registerRequest.getEmail());
-
 			Optional<User> duplicateIdUser = userService.getUserById(registerRequest.getId());
 
 			if (duplicateEmailUser.isPresent()) {
-				throw new DuplicateUserException("USER WITH THIS EMAIL ID ALREADY EXISTS");
+				throw new DuplicateUserException("User with this email ID already exists.");
 			}
 
 			if (duplicateIdUser.isPresent()) {
-				throw new DuplicateUserException("USER WITH THIS  ID ALREADY EXISTS");
+				throw new DuplicateUserException("User with this ID already exists.");
 			}
 
-			if (duplicatePhoneUser.isPresent()) {
-				throw new DuplicateUserException("USER WITH THIS MOBILE ALREADY EXISTS");
-			}
-
-			User user = User.builder().id(registerRequest.getId()).firstName(registerRequest.getFirstname())
-					.lastName(registerRequest.getLastname()).email(registerRequest.getEmail())
+			User user = User.builder()
+					.id(registerRequest.getId())
+					.firstName(registerRequest.getFirstname())
+					.lastName(registerRequest.getLastname())
+					.email(registerRequest.getEmail())
 					.password(passwordEncoder.encode(registerRequest.getPassword()))
-					.phoneNumber(registerRequest.getPhoneNumber()).build();
+					.phoneNumber(registerRequest.getPhoneNumber())
+					.build();
 
 			user.setRoleByInput(registerRequest.getRole());
 			user.setIsApproved(false);
-				userRepository.save(user);
+			userRepository.save(user);
 
-			if (registerRequest.getRole() == 2) {
+			if (registerRequest.getRole() == 2 && documentData != null && userImage != null && digitalSignature != null) {
+				String imageUrl = storageService.uploadFileToS3(userImage);
+				String documentUrl = storageService.uploadFileToS3(documentData);
+				String digitalSignatureUrl = storageService.uploadFileToS3(digitalSignature);
 
-				if (documentData == null) {
-					throw new Exception("WORK ID DOCUMENT IS REQUIRED KINDLY UPLOAD IT");
-				} else {
-					KYC kyc = KYC.builder().user(user).id(user.getId())
-							.documentData(ImageUtils.compressImage(documentData.getBytes())).build();
+				kycService.saveUserKYC(registerRequest, documentUrl, imageUrl, digitalSignatureUrl, user);
 
-					kycRepository.save(kyc);
+				SuccessDto successDto = SuccessDto.builder()
+						.code(HttpStatus.OK.value())
+						.status("success")
+						.message("User has been successfully registered")
+						.build();
 
-				}
+				return ResponseEntity.status(HttpStatus.OK).body(successDto);
+			} else {
+				throw new IllegalArgumentException("Required files are missing for KYC.");
 			}
 
-			SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("success")
-					.message("USER  HAVE BEEN SUCCESSFULLY REGISTERED").build();
-
-			return ResponseEntity.status(HttpStatus.OK).body(successDto);
-
-		} catch (DuplicateUserException e) {
-
-			String errorResponse = e.getMessage();
-			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.CONFLICT.value()).status("ERROR")
-					.message(e.getMessage()).build();
-			return ResponseEntity.status(HttpStatus.CONFLICT).body(errorDto);
-
-		} catch (Exception e) {
-			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("ERROR")
-					.message(e.getMessage()).build();
+		} catch (IOException e) {
+			ErrorDto errorDto = ErrorDto.builder()
+					.code(HttpStatus.BAD_REQUEST.value())
+					.status("ERROR")
+					.message("Error processing request: " + e.getMessage())
+					.build();
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+		} catch (IllegalArgumentException | DuplicateUserException e) {
+			ErrorDto errorDto = ErrorDto.builder()
+					.code(HttpStatus.BAD_REQUEST.value())
+					.status("ERROR")
+					.message(e.getMessage())
+					.build();
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
 		}
-
 	}
 
 	@PostMapping("/refresh")
 	public ResponseEntity<?> refreshJWTtoken(@RequestBody RefreshTokenRequest request) {
-
 		try {
 			RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshTokenString());
-
 			User user = refreshToken.getUser();
 
-			JwtResponse jwtResponse = JwtResponse.builder().refreshTokenString(refreshToken.getRefreshTokenString())
-					.jwtToken(jwtHelper.generateToken(user)).username(user.getUsername()).build();
+			JwtResponse jwtResponse = JwtResponse.builder()
+					.refreshTokenString(refreshToken.getRefreshTokenString())
+					.jwtToken(jwtHelper.generateToken(user))
+					.username(user.getUsername())
+					.build();
 
-			return new ResponseEntity<>(jwtResponse, HttpStatus.OK);
-
+			return ResponseEntity.ok(jwtResponse);
 		} catch (Exception e) {
-
-			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.UNAUTHORIZED.value()).status("ERROR")
-					.message("REFRESH TOKEN HAS BEEN EXPIRED").build();
+			ErrorDto errorDto = ErrorDto.builder()
+					.code(HttpStatus.UNAUTHORIZED.value())
+					.status("ERROR")
+					.message("REFRESH TOKEN HAS BEEN EXPIRED")
+					.build();
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorDto);
-
 		}
-
 	}
 
 	public void doAuthenticate(String email, String password) {
-
 		UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, password);
 		try {
 			authenticationManager.authenticate(authentication);
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 			this.authentication = authentication;
-
 		} catch (BadCredentialsException e) {
 			throw new BadCredentialsException("INVALID USERNAME OR PASSWORD");
-
 		}
-
 	}
 
 	@ExceptionHandler(BadCredentialsException.class)
-	public ResponseEntity exceptionHandler() {
-
+	public ResponseEntity<?> exceptionHandler() {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ErrorDto.builder()
-				.code(HttpStatus.UNAUTHORIZED.value()).message("CREDENTIALS ARE INVALID").status("ERROR").build());
+				.code(HttpStatus.UNAUTHORIZED.value())
+				.message("CREDENTIALS ARE INVALID")
+				.status("ERROR")
+				.build());
 	}
-
 }

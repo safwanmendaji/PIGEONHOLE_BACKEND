@@ -1,8 +1,6 @@
 package com.appbackend.example.AppBackend.services.impl;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -10,9 +8,8 @@ import com.appbackend.example.AppBackend.entities.*;
 import com.appbackend.example.AppBackend.enums.KycStatus;
 import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.*;
-import com.appbackend.example.AppBackend.security.JwtHelper;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +22,23 @@ import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 @Log
 @Service
+@Slf4j
 public class DashBoardServiceImpl implements DashBoardService {
+
+
+
+	@Autowired
+	public void DashboardService(KYCRepository kycRepository, DisbursementsRepository disbursementHistoryRepository,
+								 UtilizeUserCreditRepository utilizeUserCreditRepository, UserRepository userRepository) {
+		this.kycRepository = kycRepository;
+		this.disbursementHistoryRepository = disbursementHistoryRepository;
+		this.utilizeUserCreditRepository = utilizeUserCreditRepository;
+		this.userRepository = userRepository;
+	}
+
+
+	@Autowired
+	private DisbursementsRepository disbursementHistoryRepository;
 
 	@Autowired
 	private UserRepository userRepository;
@@ -53,6 +66,11 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	@Autowired
 	private UtilizeUserCreditRepository utilizeUserCreditRepository;
+
+	@Autowired
+	private DisbursementsRepository disbursementsHistoryRepository;
+
+
 
 	@Override
 	@Transactional
@@ -98,9 +116,9 @@ public class DashBoardServiceImpl implements DashBoardService {
 				String age = kyc.getAge();
 				String status = kyc.getStatus();
 
-				byte[] documentData = kyc.getDocumentData();
-				byte[] userImage = kyc.getUserImage();
-				byte[] digitalSignature = kyc.getDigitalSignature();
+				String documentData = kyc.getDocumentData();
+				String userImage = kyc.getUserImage();
+				String digitalSignature = kyc.getDigitalSignature();
 
 
 				Optional<CreditScore> optionalCreditScore = creditScoreRepository.findByUserId(userId);
@@ -413,7 +431,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	public ResponseEntity<?> getUserById(int id) {
 		try {
-			Optional<User> optionalUser = userRepository.findById(id); // Assuming findById method in your UserRepository
+			Optional<User> optionalUser = userRepository.findById(id);
 
 			if (optionalUser.isPresent()) {
 				User user = optionalUser.get();
@@ -445,6 +463,21 @@ public class DashBoardServiceImpl implements DashBoardService {
 	}
 
 
+	@Transactional
+	@Override
+	public ResponseEntity<?> deleteUser(int userId) {
+		try {
+			kycRepository.deleteByUserId(userId);
+			disbursementHistoryRepository.deleteByUserId(userId);
+			utilizeUserCreditRepository.deleteByUserId(userId);
 
+			userRepository.deleteById(userId);
+
+			return ResponseEntity.ok("User deleted successfully.");
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Failed to delete user. Reason: " + e.getMessage());
+		}
+	}
 
 }

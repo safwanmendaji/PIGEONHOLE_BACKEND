@@ -10,11 +10,13 @@ import com.appbackend.example.AppBackend.models.KYCDataResDto;
 //import com.appbackend.example.AppBackend.models.KYCDto;
 
 import com.appbackend.example.AppBackend.models.KYCDocData;
+import com.appbackend.example.AppBackend.models.RegisterRequest;
 import com.appbackend.example.AppBackend.repositories.CreditScoreRepository;
 import com.appbackend.example.AppBackend.repositories.KYCRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepository;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
+import com.appbackend.example.AppBackend.services.impl.StorageService;
 import com.appbackend.example.AppBackend.utils.ImageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -53,103 +55,178 @@ public class KYCService {
     @Autowired
     private UtilizeUserCreditRepository utilizeUserCreditRepository;
 
+    @Autowired
+    private StorageService storageService;
+
+//    @Transactional
+//    public KYCDataResDto saveUserKYC(KYCDataResDto kycRequest, MultipartFile documentData, MultipartFile userImage, MultipartFile digitalSignature) throws IOException {
+//
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        User user = (User) authentication.getPrincipal();
+//        String ageFromKYCRequest = calculateAge(kycRequest.getDob());
+//
+//
+//        KYC existingKyc = kycRepository.findKYCById((((User) authentication.getPrincipal()).getId()));
+//
+//
+//        if (existingKyc != null) {
+//
+//            if (kycRequest.getDob() != null &&  existingKyc.getDob() == null) {
+//                existingKyc.setDob(kycRequest.getDob());
+//
+//            }
+//            if(kycRequest.getPhoneNumber() != null && existingKyc.getUser() != null
+//                    && existingKyc.getUser().getPhoneNumber() == null){
+//                existingKyc.getUser().setPhoneNumber(kycRequest.getPhoneNumber());
+//            }
+//            if (kycRequest.getAddress() != null && existingKyc.getAddress() == null) {
+//                existingKyc.setAddress(kycRequest.getAddress());
+//            }
+//            if (kycRequest.getMaritalStatus() != null && existingKyc.getMaritalStatus() == null) {
+//                existingKyc.setMaritalStatus(kycRequest.getMaritalStatus());
+//            }
+//            if (kycRequest.getKin() != null && existingKyc.getKin() == null) {
+//                existingKyc.setKin(kycRequest.getKin());
+//            }
+//            if (kycRequest.getKinNumber() != null && existingKyc.getKinNumber() == null) {
+//                existingKyc.setKinNumber(kycRequest.getKinNumber());
+//            }
+//            if (kycRequest.getKin1() != null && existingKyc.getKin1() == null) {
+//                existingKyc.setKin1(kycRequest.getKin1());
+//            }
+//            if (kycRequest.getKin1Number() != null && existingKyc.getKin1Number() == null) {
+//                existingKyc.setKin1Number(kycRequest.getKin1Number());
+//            }
+//            if (kycRequest.getNationalId() != null && existingKyc.getNationalId() == null) {
+//                existingKyc.setNationalId(kycRequest.getNationalId());
+//            }
+//            if (kycRequest.getGender() != null && existingKyc.getGender() == null) {
+//                existingKyc.setGender(kycRequest.getGender());
+//            }
+//
+//            if (existingKyc.getAge() == null) {
+//                String age = ageFromKYCRequest;
+//            }
+//            if (documentData != null && existingKyc.getDocumentData() == null) {
+//                existingKyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
+//            }
+//            if (digitalSignature != null && existingKyc.getDigitalSignature() == null) {
+//                existingKyc.setDigitalSignature(ImageUtils.compressImage(digitalSignature.getBytes()));
+//            }
+//
+//            if (userImage != null && existingKyc.getUserImage() == null) {
+//                String userImageUrl = storageService.uploadFileToS3(userImage);
+//                existingKyc.setUserImage(userImageUrl);
+//            }
+//
+//            existingKyc.setStatus(String.valueOf(KycStatus.PENDING));
+//
+//
+//
+//            System.out.println(calculateAge(kycRequest.getDob()));
+//
+//            CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
+//
+//
+//            kycRepository.save(existingKyc);
+//
+//            assert documentData != null;
+//            assert userImage != null;
+//            assert digitalSignature != null;
+//            KYCDataResDto kycResponse = KYCDataResDto.builder()
+//                    .workId(existingKyc.getId())
+//                    .dob(existingKyc.getDob())
+//                    .phoneNumber(existingKyc.getUser().getPhoneNumber())
+//                    .firstName(existingKyc.getUser().getFirstName())
+//                    .lastName(existingKyc.getUser().getLastName())
+//                    .nationalId(existingKyc.getNationalId())
+//                    .age(existingKyc.getAge())
+//                    .kin(existingKyc.getKin())
+//                    .kinNumber(existingKyc.getKinNumber())
+//                    .kin1(existingKyc.getKin1())
+//                    .kin1Number(existingKyc.getKin1Number())
+//                    .address(existingKyc.getAddress())
+//                    .email(existingKyc.getUser().getUsername())
+//                    .gender(existingKyc.getGender())
+//                    .isDocumentDataSubmitted(existingKyc.getDocumentData() != null)
+//                    .isDigitalSignatureSubmitted(existingKyc.getDigitalSignature() != null)
+//                    .isUserImageSubmitted(existingKyc.getUserImage() != null)
+//                    .build();
+//            return kycResponse;
+//
+//        }
+//
+//        assert documentData != null;
+//        assert userImage != null;
+//        assert digitalSignature != null;
+//
+//
+////            if user is first time filling the kyc form then first build kyc object then save in db
+//        user.setPhoneNumber(kycRequest.getPhoneNumber());
+//        KYC kyc = KYC.builder()
+//                .id(user.getId())
+//                .user(user)
+//                .gender(kycRequest.getGender())
+//                .dob(kycRequest.getDob())
+//                .age(ageFromKYCRequest)
+//                .address(kycRequest.getAddress())
+//                .maritalStatus(kycRequest.getMaritalStatus())
+//                .kin(kycRequest.getKin())
+//                .kinNumber(kycRequest.getKinNumber())
+//                .kin1(kycRequest.getKin1())
+//                .kin1Number(kycRequest.getKin1Number())
+//                .nationalId(kycRequest.getNationalId())
+//                .build();
+//
+//
+//        CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
+//
+//
+//        if (userImage != null) {
+//            existingKyc.setUserImage(String.valueOf(userImage));
+//        }
+//        if (documentData != null) {
+//            kyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
+//        }
+//        if (digitalSignature != null) {
+//            kyc.setDigitalSignature(ImageUtils.compressImage(digitalSignature.getBytes()));
+//        }
+//
+////        save kyc in db
+//        kycRepository.save(kyc);
+//
+//
+////        build kyc first time response for first time registration
+//        KYCDataResDto kycFirstTimeResponse = KYCDataResDto.builder()
+//                .workId(user.getId())
+//                .firstName(user.getFirstName())
+//                .lastName(user.getLastName())
+//                .phoneNumber(user.getPhoneNumber())
+//                .email(user.getUsername())
+//                .age(kyc.getAge())
+//                .dob(kyc.getDob())
+//                .address(kyc.getAddress())
+//                .gender(kyc.getGender())
+//                .maritalStatus(kyc.getMaritalStatus())
+//                .kin(kyc.getKin())
+//                .kinNumber(kyc.getKinNumber())
+//                .kin1(kyc.getKin1())
+//                .kin1Number(kyc.getKin1Number())
+//                .nationalId(kyc.getNationalId())
+//                .isDocumentDataSubmitted(kyc.getDocumentData() != null)
+//                .isUserImageSubmitted(kyc.getUserImage() != null)
+//                .isDigitalSignatureSubmitted(kyc.getDigitalSignature() != null)
+//                .build();
+//
+//        return kycFirstTimeResponse;
+//
+//
+//    }
+
+
     @Transactional
-    public KYCDataResDto saveUserKYC(KYCDataResDto kycRequest, MultipartFile documentData, MultipartFile userImage, MultipartFile digitalSignature) throws IOException {
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) authentication.getPrincipal();
-        String ageFromKYCRequest = calculateAge(kycRequest.getDob());
-
-        //        if some of kyc details exists then update only those kyc details which are remaining and are provide by client side
-
-        KYC existingKyc = kycRepository.findKYCById((((User) authentication.getPrincipal()).getId()));
-
-
-        if (existingKyc != null) {
-
-            if (kycRequest.getDob() != null &&  existingKyc.getDob() == null) {
-                existingKyc.setDob(kycRequest.getDob());
-
-            }
-            if(kycRequest.getPhoneNumber() != null && existingKyc.getUser() != null
-                    && existingKyc.getUser().getPhoneNumber() == null){
-                existingKyc.getUser().setPhoneNumber(kycRequest.getPhoneNumber());
-            }
-            if (kycRequest.getAddress() != null && existingKyc.getAddress() == null) {
-                existingKyc.setAddress(kycRequest.getAddress());
-            }
-            if (kycRequest.getMaritalStatus() != null && existingKyc.getMaritalStatus() == null) {
-                existingKyc.setMaritalStatus(kycRequest.getMaritalStatus());
-            }
-            if (kycRequest.getKin() != null && existingKyc.getKin() == null) {
-                existingKyc.setKin(kycRequest.getKin());
-            }
-            if (kycRequest.getKinNumber() != null && existingKyc.getKinNumber() == null) {
-                existingKyc.setKinNumber(kycRequest.getKinNumber());
-            }
-            if (kycRequest.getKin1() != null && existingKyc.getKin1() == null) {
-                existingKyc.setKin1(kycRequest.getKin1());
-            }
-            if (kycRequest.getKin1Number() != null && existingKyc.getKin1Number() == null) {
-                existingKyc.setKin1Number(kycRequest.getKin1Number());
-            }
-            if (kycRequest.getNationalId() != null && existingKyc.getNationalId() == null) {
-                existingKyc.setNationalId(kycRequest.getNationalId());
-            }
-            if (kycRequest.getGender() != null && existingKyc.getGender() == null) {
-                existingKyc.setGender(kycRequest.getGender());
-            }
-
-            if (existingKyc.getAge() == null) {
-                String age = ageFromKYCRequest;
-            }
-            if (documentData != null && existingKyc.getDocumentData() == null) {
-                existingKyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
-            }
-            if (digitalSignature != null && existingKyc.getDigitalSignature() == null) {
-                existingKyc.setDigitalSignature(ImageUtils.compressImage(digitalSignature.getBytes()));
-            }
-
-            if (userImage != null && existingKyc.getUserImage() == null) {
-                existingKyc.setUserImage(ImageUtils.compressImage(userImage.getBytes()));
-            }
-
-            existingKyc.setStatus(String.valueOf(KycStatus.PENDING));
-
-
-
-            System.out.println(calculateAge(kycRequest.getDob()));
-
-            CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
-
-
-            kycRepository.save(existingKyc);
-
-            assert documentData != null;
-            assert userImage != null;
-            assert digitalSignature != null;
-            KYCDataResDto kycResponse = KYCDataResDto.builder()
-                    .workId(existingKyc.getId())
-                    .dob(existingKyc.getDob())
-                    .phoneNumber(existingKyc.getUser().getPhoneNumber())
-                    .firstName(existingKyc.getUser().getFirstName())
-                    .lastName(existingKyc.getUser().getLastName())
-                    .nationalId(existingKyc.getNationalId())
-                    .age(existingKyc.getAge())
-                    .kin(existingKyc.getKin())
-                    .kinNumber(existingKyc.getKinNumber())
-                    .kin1(existingKyc.getKin1())
-                    .kin1Number(existingKyc.getKin1Number())
-                    .address(existingKyc.getAddress())
-                    .email(existingKyc.getUser().getUsername())
-                    .gender(existingKyc.getGender())
-                    .isDocumentDataSubmitted(existingKyc.getDocumentData() != null)
-                    .isDigitalSignatureSubmitted(existingKyc.getDigitalSignature() != null)
-                    .isUserImageSubmitted(existingKyc.getUserImage() != null)
-                    .build();
-            return kycResponse;
-
-        }
+    public RegisterRequest saveUserKYC(RegisterRequest registerRequest, String documentData, String userImage, String digitalSignature,User user) throws IOException {
+        String ageFromKYCRequest = calculateAge(registerRequest.getDob());
 
         assert documentData != null;
         assert userImage != null;
@@ -157,45 +234,44 @@ public class KYCService {
 
 
 //            if user is first time filling the kyc form then first build kyc object then save in db
-        user.setPhoneNumber(kycRequest.getPhoneNumber());
         KYC kyc = KYC.builder()
-                .id(user.getId())
+                .id(registerRequest.getId())
                 .user(user)
-                .gender(kycRequest.getGender())
-                .dob(kycRequest.getDob())
+                .gender(registerRequest.getGender())
+                .dob(registerRequest.getDob())
                 .age(ageFromKYCRequest)
-                .address(kycRequest.getAddress())
-                .maritalStatus(kycRequest.getMaritalStatus())
-                .kin(kycRequest.getKin())
-                .kinNumber(kycRequest.getKinNumber())
-                .kin1(kycRequest.getKin1())
-                .kin1Number(kycRequest.getKin1Number())
-                .nationalId(kycRequest.getNationalId())
+                .address(registerRequest.getAddress())
+                .maritalStatus(registerRequest.getMaritalStatus())
+                .kin(registerRequest.getKin())
+                .kinNumber(registerRequest.getKinNumber())
+                .kin1(registerRequest.getKin1())
+                .kin1Number(registerRequest.getKin1Number())
+                .nationalId(registerRequest.getNationalId())
                 .build();
 
 
-        CreditScore creditScore = getCreditScore(kycRequest, user, ageFromKYCRequest);
+        CreditScore creditScore = getCreditScore(registerRequest, user, ageFromKYCRequest);
 
 
-        if (userImage != null) {
-            kyc.setUserImage(ImageUtils.compressImage(userImage.getBytes()));
-        }
-        if (documentData != null) {
-            kyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
-        }
-        if (digitalSignature != null) {
-            kyc.setDigitalSignature(ImageUtils.compressImage(digitalSignature.getBytes()));
-        }
+//        if (userImage != null) {
+//            existingKyc.setUserImage(String.valueOf(userImage));
+//        }
+//        if (documentData != null) {
+//            kyc.setDocumentData(ImageUtils.compressImage(documentData.getBytes()));
+//        }
+//        if (digitalSignature != null) {
+//            kyc.setDigitalSignature(ImageUtils.compressImage(digitalSignature.getBytes()));
+//        }
 
 //        save kyc in db
         kycRepository.save(kyc);
 
 
 //        build kyc first time response for first time registration
-        KYCDataResDto kycFirstTimeResponse = KYCDataResDto.builder()
+        RegisterRequest kycFirstTimeResponse = RegisterRequest.builder()
                 .workId(user.getId())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
+                .firstname(user.getFirstName())
+                .lastname(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
                 .email(user.getUsername())
                 .age(kyc.getAge())
@@ -228,7 +304,7 @@ public class KYCService {
         return null;
     }
 
-    private CreditScore getCreditScore(KYCDataResDto kycRequest, User user, String ageFromKYCRequest) {
+    private CreditScore getCreditScore(RegisterRequest kycRequest, User user, String ageFromKYCRequest) {
         int ageCreditsScore = creditScoreService.ageCreditScore(Integer.parseInt(ageFromKYCRequest));
         int genderCreditScore = creditScoreService.genderCreditScore(kycRequest.getGender());
         int kinCreditScore = creditScoreService.nextOfKin(kycRequest.getKin());
@@ -277,26 +353,27 @@ public class KYCService {
     public Object getUserKYCDocDataById(Integer id) {
         KYC kycData = kycRepository.findKYCById(id);
 
-        if (kycData != null) {
-            int docSignSize = kycData.getDocumentData() != null ? docToByte(kycData.getDocumentData()).length : 0;
-            int userImageSize = kycData.getUserImage() != null ? docToByte(kycData.getUserImage()).length : 0;
-            int digitalSignSize = kycData.getDigitalSignature() != null ? docToByte(kycData.getDigitalSignature()).length : 0;
+//        if (kycData != null) {
+//            int docSignSize = kycData.getDocumentData() != null ? docToByte(kycData.getDocumentData()).length : 0;
+//            int userImageSize = kycData.getUserImage() != null ? docToByte(kycData.getUserImage()).length : 0;
+//            int digitalSignSize = kycData.getDigitalSignature() != null ? docToByte(kycData.getDigitalSignature()).length : 0;
+//
+//            KYCDocData kycDocumentData = new KYCDocData().builder()
+//                    .documentData(docToByte(kycData.getDocumentData()))
+//                    .userImage(docToByte(kycData.getUserImage()))
+//                    .digitalSignature(docToByte(kycData.getDigitalSignature()))
+//                    .docSize(docSignSize)
+//                    .userImgSize(userImageSize)
+//                    .digitalSignSize(digitalSignSize)
+//                    .build();
+//            return kycDocumentData;
+//
+//
+//        } else {
+//            return "KYC data with id " + id + " not found";
+//        }
 
-            KYCDocData kycDocumentData = new KYCDocData().builder()
-                    .documentData(docToByte(kycData.getDocumentData()))
-                    .userImage(docToByte(kycData.getUserImage()))
-                    .digitalSignature(docToByte(kycData.getDigitalSignature()))
-                    .docSize(docSignSize)
-                    .userImgSize(userImageSize)
-                    .digitalSignSize(digitalSignSize)
-                    .build();
-            return kycDocumentData;
-
-
-        } else {
-            return "KYC data with id " + id + " not found";
-        }
-
+        return null;
     }
 
 

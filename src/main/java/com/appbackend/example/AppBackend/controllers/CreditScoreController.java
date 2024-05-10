@@ -1,7 +1,8 @@
 package com.appbackend.example.AppBackend.controllers;
 
-import java.util.List;
 
+
+import lombok.extern.java.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,8 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.appbackend.example.AppBackend.entities.KycCalculationDetails;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.CreditScoreDTO;
 import com.appbackend.example.AppBackend.models.CreditScoreDtoDemo;
@@ -23,7 +22,7 @@ import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
 
 @RestController
-
+@Log
 @RequestMapping("/creditscore")
 public class CreditScoreController {
 	
@@ -54,7 +53,6 @@ public class CreditScoreController {
 			e.printStackTrace();
 			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("ERROR").message("SOME THING WHEN WRONG.").build();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
-
 		}
 	}
 
@@ -65,13 +63,8 @@ public class CreditScoreController {
 			user = userService.getUserByEmail(email).get();
 		}catch (Exception e){
 			ErrorDto errorDto = ErrorDto.builder().code(HttpStatus.NOT_FOUND.value()).status("ERROR").message("USER WITH EMAIL " + email + " IS NOT FOUND ").build();
-
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-
 		}
-
-
-
 		return ResponseEntity.ok().build();
 	}
 	

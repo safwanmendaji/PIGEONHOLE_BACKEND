@@ -1,18 +1,19 @@
 package com.appbackend.example.AppBackend.services.impl;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.utils.IoUtils;
+import software.amazon.awssdk.core.exception.SdkClientException;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 
 
 @Service
@@ -22,16 +23,29 @@ public class StorageService {
     @Value("${aws.bucketName}")
     private String bucketName;
 
+    @Value("${aws.accessKeyId}")
+    private String accessKeyId;
 
+    @Value("${aws.secretKey}")
+    private String secretKey;
+    @Autowired
     private AmazonS3 s3Client;
 
-    public String uploadFile(MultipartFile file){
+    public String uploadFileToS3(MultipartFile file) {
         File fileObj = convertedMultiPartFiletoFile(file);
-        String fileName=System.currentTimeMillis()+"_"+file.getOriginalFilename();
-        s3Client.putObject(new PutObjectRequest(bucketName,fileName,fileObj));
-        fileObj.delete();
-        return "File uploaded"+fileName;
+        String fileName = file.getOriginalFilename();
+
+
+        try {
+            s3Client.putObject(new PutObjectRequest(bucketName, fileName, fileObj));
+            fileObj.delete();
+            System.out.println("File uploaded to " + fileName);
+        } catch (AmazonS3Exception | SdkClientException e) {
+            System.err.println("Error uploading file: " + e.getMessage());
+        }
+        return fileName;
     }
+
 
 
 //    public byte[] downloadFile(String fileName) {
