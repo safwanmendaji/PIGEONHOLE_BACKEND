@@ -5,6 +5,7 @@ import com.appbackend.example.AppBackend.common.AppCommon;
 import com.appbackend.example.AppBackend.entities.ReferralInfo;
 import com.appbackend.example.AppBackend.entities.User;
 import com.appbackend.example.AppBackend.models.ReferDto;
+import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.repositories.ReferralRepository;
 import com.appbackend.example.AppBackend.repositories.UserRepository;
 import com.appbackend.example.AppBackend.services.OtpService;
@@ -74,7 +75,9 @@ public class ReferralServiceImpl implements ReferralService {
 
             referralRepository.save(referralInfo);
 
-            return ResponseEntity.ok("Referral code sent successfully.");
+            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Referral Code Sent Successfully")
+                    .message("Referral Code Sent Successfully.").build();
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
@@ -92,16 +95,25 @@ public class ReferralServiceImpl implements ReferralService {
                 String decryptedEmail = parts[0];
                 String decryptedMobile = parts[1];
                 if (decryptedEmail.equals(referDto.getEmail()) && decryptedMobile.equals(referDto.getMobile())) {
-                    return ResponseEntity.ok("Reference code verified successfully.");
+                    SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Referral Code Verify Successfully")
+                            .message("Referral Code Verify Successfully.").build();
+                    return ResponseEntity.status(HttpStatus.OK).body(successDto);
                 } else {
-                    return ResponseEntity.badRequest().body("Reference code is invalid.");
+                    SuccessDto successDto = SuccessDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("Invalid format of reference code")
+                            .message("Invalid format of reference code").build();
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(successDto);
                 }
             } else {
-                return ResponseEntity.badRequest().body("Invalid format of reference code.");
+                SuccessDto successDto = SuccessDto.builder().code(HttpStatus.BAD_REQUEST.value()).status("Referral Code is Invalid")
+                        .message("Referral Code is Invalid").build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(successDto);
+
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error verifying reference code.");
+            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).status("INTERNAL SERVER ERROR")
+                    .message("INTERNAL SERVER ERROR").build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(successDto);
         }
     }
 }
