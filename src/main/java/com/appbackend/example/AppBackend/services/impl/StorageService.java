@@ -1,5 +1,6 @@
 package com.appbackend.example.AppBackend.services.impl;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -32,19 +33,23 @@ public class StorageService {
     private AmazonS3 s3Client;
 
     public String uploadFileToS3(MultipartFile file) {
-        File fileObj = convertedMultiPartFiletoFile(file);
         String fileName = file.getOriginalFilename();
-
+        File fileObj = convertedMultiPartFiletoFile(file);
 
         try {
             s3Client.putObject(new PutObjectRequest(bucketName, fileName, fileObj));
+
             fileObj.delete();
-            System.out.println("File uploaded to " + fileName);
-        } catch (AmazonS3Exception | SdkClientException e) {
+
+            System.out.println("File uploaded to S3 bucket: " + fileName);
+
+            return "https://" + bucketName + ".s3.amazonaws.com/" + fileName;
+        } catch (AmazonServiceException | SdkClientException e) {
             System.err.println("Error uploading file: " + e.getMessage());
+            return null; // Return null to indicate failure
         }
-        return fileName;
     }
+
 
 
 

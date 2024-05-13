@@ -247,6 +247,9 @@ public class KYCService {
                 .kin1(registerRequest.getKin1())
                 .kin1Number(registerRequest.getKin1Number())
                 .nationalId(registerRequest.getNationalId())
+                .userImage(userImage)
+                .digitalSignature(digitalSignature)
+                .documentData(documentData)
                 .build();
 
 
@@ -462,11 +465,11 @@ public class KYCService {
         return String.valueOf(age);
     }
 
-	public ResponseEntity<?> updateKYC(int id) {
-		
-	
-		
-		return null;
-	}
+    public ResponseEntity<?> updateKYC(int id) {
+
+
+
+        return null;
+    }
 
 }
