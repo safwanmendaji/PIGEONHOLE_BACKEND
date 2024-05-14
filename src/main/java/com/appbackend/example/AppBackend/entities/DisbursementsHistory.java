@@ -43,7 +43,7 @@ public class DisbursementsHistory {
     private String narration;
     private boolean approvedForTravel;
     @Lob
-    private byte[] document;
+    private String document;
     private String travelDeclineReason;
     private String reason;
     private String disbursementFailReason;
@@ -53,6 +53,8 @@ public class DisbursementsHistory {
     private LocalDateTime updateOn;
     private int createdBy;
     private LocalDateTime createdOn;
+
+    private Boolean collectionCompleted;
 
 //    @OneToMany(mappedBy = "history")
 //    private List<UtilizeUserCredit> utilizeUserCredits;

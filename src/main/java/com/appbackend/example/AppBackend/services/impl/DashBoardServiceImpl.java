@@ -1,18 +1,20 @@
 package com.appbackend.example.AppBackend.services.impl;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.appbackend.example.AppBackend.common.AppCommon;
 import com.appbackend.example.AppBackend.entities.*;
 import com.appbackend.example.AppBackend.enums.KycStatus;
 import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.extern.java.Log;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,12 +22,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.appbackend.example.AppBackend.services.DashBoardService;
 import com.appbackend.example.AppBackend.services.UserService;
 import com.appbackend.example.AppBackend.services.AdminServices.CreditScoreService;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
 @Log
 @Service
 @Slf4j
 public class DashBoardServiceImpl implements DashBoardService {
 
 
+	@Autowired
+	private RestTemplate restTemplate;
+
+
+	@Autowired
+	private AppCommon appCommon;
 
 	@Autowired
 	public void DashboardService(KYCRepository kycRepository, DisbursementsRepository disbursementHistoryRepository,
@@ -463,16 +475,17 @@ public class DashBoardServiceImpl implements DashBoardService {
 	}
 
 
-	@Transactional
 	@Override
 	public ResponseEntity<?> deleteUser(int userId) {
 		try {
+			if (disbursementHistoryRepository.existsByUserIdAndCollectionCompletedTrue(userId)) {
+				return ResponseEntity.status(HttpStatus.FORBIDDEN)
+						.body("User cannot be deleted because they have an ongoing loan.");
+			}
 			kycRepository.deleteByUserId(userId);
 			disbursementHistoryRepository.deleteByUserId(userId);
 			utilizeUserCreditRepository.deleteByUserId(userId);
-
 			userRepository.deleteById(userId);
-
 			return ResponseEntity.ok("User deleted successfully.");
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -480,4 +493,66 @@ public class DashBoardServiceImpl implements DashBoardService {
 		}
 	}
 
+	@Override
+	public ResponseEntity<?> getWalletBalance() throws JsonProcessingException {
+		String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements/balance";
+		HttpHeaders headers = appCommon.getHttpHeaders();
+		String network = "MTN";
+
+		try {
+			HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+			URI uri = UriComponentsBuilder.fromUriString(apiUrl)
+					.queryParam("network", network)
+					.build()
+					.toUri();
+			ResponseEntity<String> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, requestEntity, String.class);
+			HttpStatusCode statusCode = responseEntity.getStatusCode();
+			if (statusCode.is2xxSuccessful()) {
+				String responseBody = responseEntity.getBody();
+				SuccessDto successDto = SuccessDto.builder()
+						.message("Wallet Balance retrieved successfully")
+						.code(statusCode.value())
+						.status(statusCode.toString())
+						.data(responseBody)
+						.build();
+				return ResponseEntity.status(statusCode).body(successDto);
+			} else {
+				return ResponseEntity.status(statusCode).build();
+			}
+		} catch (RestClientException ex) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet balance: " + ex.getMessage());
+		}
+	}
+
+
+	@Override
+	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
+		String apiUrl = "https://api.valueadditionmicrofinance.com/v1/collections/balance";
+		HttpHeaders headers = appCommon.getHttpHeaders();
+
+		try {
+
+			HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+			ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, requestEntity, String.class);
+			HttpStatusCode statusCode = responseEntity.getStatusCode();
+
+			if (statusCode.is2xxSuccessful()) {
+				String responseBody = responseEntity.getBody();
+				SuccessDto successDto = SuccessDto.builder()
+						.message("Collections retrieved successfully")
+						.code(statusCode.value())
+						.status(statusCode.toString())
+						.data(responseBody)
+						.build();
+
+				return ResponseEntity.status(statusCode).body(successDto);
+			} else {
+				return ResponseEntity.status(statusCode).build();
+			}
+		} catch (RestClientException ex) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet collections:" + ex.getMessage());
+		}
+	}
 }

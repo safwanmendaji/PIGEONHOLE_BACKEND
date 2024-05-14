@@ -392,15 +392,15 @@ public class PaymentServiceImpl implements PaymentService {
     public void checkDisbursementStatusAndUpdate(DisbursementsHistory disbursementsHistory){
         String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , null);
         disbursementsHistory.setPaymentStatus(status);
-        disbursementsRepository.save(disbursementsHistory);
         if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
+            disbursementsHistory.setCollectionCompleted(false);
             PaymentDto paymentDto  = new PaymentDto();
             paymentDto.setAmount(disbursementsHistory.getAmount());
-//            Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
             UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
             calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
 
         }
+        disbursementsRepository.save(disbursementsHistory);
     }
 
     @Scheduled(fixedRate = 150000)

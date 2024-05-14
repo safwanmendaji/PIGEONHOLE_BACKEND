@@ -19,4 +19,6 @@ public interface DisbursementsRepository extends JpaRepository<DisbursementsHist
     List<DisbursementsHistory> findByPaymentStatus(String pending);
 
     void deleteByUserId(int userId);
+
+    boolean existsByUserIdAndCollectionCompletedTrue(int userId);
 }
