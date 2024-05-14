@@ -23,7 +23,7 @@ public class PaymentDto {
 	private String reason;
 
 	@Lob
-	private byte[] document;
+	private String document;
 
 	@Data
 	public class StudentDetails{

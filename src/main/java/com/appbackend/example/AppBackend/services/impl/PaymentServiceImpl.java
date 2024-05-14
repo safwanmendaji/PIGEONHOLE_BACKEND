@@ -13,19 +13,17 @@ import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepositor
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import io.jsonwebtoken.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -55,6 +53,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private UtilizeUserCreditRepository utilizeUserCreditRepository;
+
+
+    @Autowired
+    private StorageService storageService;
 
     @Override
     public ResponseEntity<?> payment(PaymentDto paymentDto) {
@@ -184,12 +186,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         Optional<DisbursementsHistory> response = disbursementsRepository.findById(id);
 
-
         if (response.isPresent()) {
-
             DisbursementsHistory data = response.get();
-
-
             SuccessDto successDto = SuccessDto.builder()
                     .message("DISBURSEMENTS TRANSACTION STATUS IS : .")
                     .code(HttpStatus.OK.value())
@@ -207,7 +205,6 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public ResponseEntity<?> getAllDisbursementHistoryGroupedByType() {
         List<DisbursementsHistory> allDisbursements = disbursementsRepository.findAll();
-
 
         Map<String, List<DisbursementsHistory>> groupedData = allDisbursements.stream()
                 .collect(Collectors.groupingBy(DisbursementsHistory::getDisbursementsType));
@@ -271,6 +268,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
+
 
     private void processTravelDisbursement(ApprovalDeclineDto dto , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
         PaymentDto paymentDto = buildPaymentDtoForTravel(dto , disbursementsHistory);
@@ -359,6 +357,34 @@ public class PaymentServiceImpl implements PaymentService {
                 .data(status)
                 .build();
         return  ResponseEntity.status(HttpStatus.OK).body(successDto);
+    }
+
+    @Override
+    public ResponseEntity<?> uploadDisbursementDocument(MultipartFile file, int disbursementId) {
+        if (file.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File is empty");
+        }
+
+        Optional<DisbursementsHistory> disbursementOptional = disbursementsRepository.findById(disbursementId);
+        if (!disbursementOptional.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Disbursement ID not found");
+        }
+
+        DisbursementsHistory disbursement = disbursementOptional.get();
+        if (!disbursement.getPaymentStatus().equalsIgnoreCase("SUCCEEDED")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Payment status is not succeeded");
+        }
+
+        try {
+            String s3Url = storageService.uploadFileToS3(file);
+
+            disbursement.setDocument(s3Url);
+            disbursementsRepository.save(disbursement);
+
+            return ResponseEntity.status(HttpStatus.OK).body("File uploaded successfully: " + s3Url);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload file: " + e.getMessage());
+        }
     }
 
 

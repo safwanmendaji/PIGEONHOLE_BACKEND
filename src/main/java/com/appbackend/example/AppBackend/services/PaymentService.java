@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface PaymentService {
 	ResponseEntity<?> payment(PaymentDto paymentDto);
@@ -23,4 +24,7 @@ public interface PaymentService {
 	ResponseEntity<?> getDisbursementHistoryOfUser(Authentication authentication);
 
     ResponseEntity<?> getDisbursementStatus(String id);
+
+
+    ResponseEntity<?> uploadDisbursementDocument(MultipartFile file, int disbursementId);
 }

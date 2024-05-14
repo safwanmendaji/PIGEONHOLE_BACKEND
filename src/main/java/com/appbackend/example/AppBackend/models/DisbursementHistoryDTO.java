@@ -35,7 +35,7 @@ public class DisbursementHistoryDTO {
     private String narration;
     private boolean approvedForTravel;
 
-    private byte[] document;
+    private String document;
     private String travelDeclineReason;
     private String reason;
     private String disbursementFailReason;
