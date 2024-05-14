@@ -77,7 +77,7 @@ public class PaymentController {
 	}
 
 
-	@PostMapping("/disbursement/document/id")
+	@PostMapping("/disbursement/document/{disbursementId}")
 	public ResponseEntity<?> uploadDisbursementDocument(@RequestParam("file") MultipartFile file,@PathVariable int disbursementId) {
 		return paymentService.uploadDisbursementDocument(file,disbursementId);
 	}
