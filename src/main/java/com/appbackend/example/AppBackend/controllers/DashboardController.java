@@ -6,6 +6,7 @@ import java.util.Map;
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.models.UserDtoForUpdate;
 import com.appbackend.example.AppBackend.security.JwtHelper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.java.Log;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -111,4 +112,14 @@ public class DashboardController {
 		return dashboardService.deleteUser(id);
 	}
 
+
+	@GetMapping("/wallet/balance")
+	public ResponseEntity<?>  getWalletBalance() throws JsonProcessingException {
+		return dashboardService.getWalletBalance();
+	}
+
+	@GetMapping("/wallet/collection")
+	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
+		return dashboardService.getWalletCollections();
+	}
 }

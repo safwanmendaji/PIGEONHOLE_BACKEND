@@ -6,10 +6,6 @@ import lombok.Data;
 public class ReferDto {
     private String email;
     private String mobile;
-
     private String referenceCode;
-
-
-
 
 }

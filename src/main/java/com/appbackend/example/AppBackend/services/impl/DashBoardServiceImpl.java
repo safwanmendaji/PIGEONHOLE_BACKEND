@@ -476,6 +476,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 
 	@Override
+	@Transactional
 	public ResponseEntity<?> deleteUser(int userId) {
 		try {
 			if (disbursementHistoryRepository.existsByUserIdAndCollectionCompletedTrue(userId)) {
