@@ -32,7 +32,5 @@ public interface DashBoardService {
 
 	ResponseEntity<?> deleteUser(int id);
 
-    ResponseEntity<?> getWalletBalance() throws JsonProcessingException;
 
-	ResponseEntity<?> getWalletCollections() throws JsonProcessingException;
 }

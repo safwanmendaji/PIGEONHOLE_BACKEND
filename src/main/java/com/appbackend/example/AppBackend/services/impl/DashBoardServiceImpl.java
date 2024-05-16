@@ -83,12 +83,11 @@ public class DashBoardServiceImpl implements DashBoardService {
 	private DisbursementsRepository disbursementsHistoryRepository;
 
 
-
 	@Override
 	@Transactional
 	public ResponseEntity<?> getAllUsers() {
 		List<User> users = userRepository.findAll();
-		List<UserDto> userDtos = getUserDtos(users , false);
+		List<UserDto> userDtos = getUserDtos(users, false);
 
 		SuccessDto successDto = SuccessDto.builder()
 				.code(HttpStatus.OK.value())
@@ -194,7 +193,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 						firstName, lastName, mobile, email, score, isApproved, dob, address, maritalStatus, kin, kinNumber, kin1, kin1Number,
 						nationalId, gender, age, documentData, userImage, digitalSignature, reschedule, occupation, departments, security,
 						loanhistorycompletedloanswitharrearsnegative, loanhistorycompletedloanswithoutarrears, arrearsamountdefault,
-						daysinarrearspaymenthistory, blackList, status , priorityClient
+						daysinarrearspaymenthistory, blackList, status, priorityClient
 				);
 
 				if (userLoanEligibility != null) {
@@ -269,12 +268,12 @@ public class DashBoardServiceImpl implements DashBoardService {
 						if (userCredit == null) {
 							userCredit = new UtilizeUserCredit();
 							userCredit.setUserLoanEligibility(userLoanEligibility);
-							userCredit.setAvailableBalance((double) calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() ,  creditScore.getTotalExposure()));
+							userCredit.setAvailableBalance((double) calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure()));
 							userCredit.setUtilizeBalance(0.0);
 							userCredit.setUser(user);
 							utilizeUserCreditRepository.save(userCredit);
 						} else if (updateEligibilityAmount) {
-							long increaseAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount() , creditScore.getTotalExposure()) - oldEligibilityAmount;
+							long increaseAmount = calculateEligibilityBasedOnExposer(loanEligibility.getEndAmount(), creditScore.getTotalExposure()) - oldEligibilityAmount;
 							double availableAmount = userCredit.getAvailableBalance();
 							userCredit.setAvailableBalance(availableAmount + increaseAmount);
 							utilizeUserCreditRepository.save(userCredit);
@@ -282,7 +281,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 					}
 					message = "KYC UPDATED SUCCESSFULLY.";
-				}else{
+				} else {
 					message = "KYC UPDATED SUCCESSFULLY. SORRY, THIS USER ARE NOT ELIGIBLE FOR LOAN.";
 				}
 
@@ -307,7 +306,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 	private Long calculateEligibilityBasedOnExposer(Long levelAmount, Float exposure) {
 		double multiplyAmount = levelAmount * exposure;
 		double calculation = multiplyAmount / 100;
-		return (long)  calculation;
+		return (long) calculation;
 
 	}
 
@@ -362,17 +361,17 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	public ResponseEntity<?> approvedUser() {
 
-			List<User> userApproved = userRepository.findByIsApproved(true);
-			System.out.println("Size ::: " + userApproved.size());
-		List<UserDto> userDtos = getUserDtos(userApproved , true);
+		List<User> userApproved = userRepository.findByIsApproved(true);
+		System.out.println("Size ::: " + userApproved.size());
+		List<UserDto> userDtos = getUserDtos(userApproved, true);
 
 		SuccessDto successResponse = SuccessDto.builder()
-					.code(HttpStatus.OK.value())
-					.status("Success")
-					.message("ACTIVE USERS")
-					.data(userDtos)
-					.build();
-			return ResponseEntity.status(HttpStatus.OK).body(successResponse);
+				.code(HttpStatus.OK.value())
+				.status("Success")
+				.message("ACTIVE USERS")
+				.data(userDtos)
+				.build();
+		return ResponseEntity.status(HttpStatus.OK).body(successResponse);
 //		} catch (Exception ex) {
 //			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error occurred while fetching user status.");
 //		}
@@ -380,7 +379,7 @@ public class DashBoardServiceImpl implements DashBoardService {
 
 	}
 
-	private List<UserDto> getUserDtos(List<User> userApproved , boolean approve) {
+	private List<UserDto> getUserDtos(List<User> userApproved, boolean approve) {
 		List<UserDto> userDtos = userApproved.stream().map(user -> {
 			int userId = user.getId();
 			String firstName = user.getFirstName();
@@ -395,11 +394,11 @@ public class DashBoardServiceImpl implements DashBoardService {
 			int score = optionalCreditScore.map(CreditScore::getTotalCreditScore).orElse(0);
 
 
-				Optional<KYC> optionalKyc = kycRepository.findByUserId(userId);
-				if (optionalKyc.isPresent()) {
-					status = optionalKyc.get().getStatus();
-				}
-				return new UserDto(userId, firstName, lastName, mobile, email, score, status);
+			Optional<KYC> optionalKyc = kycRepository.findByUserId(userId);
+			if (optionalKyc.isPresent()) {
+				status = optionalKyc.get().getStatus();
+			}
+			return new UserDto(userId, firstName, lastName, mobile, email, score, status);
 
 		}).collect(Collectors.toList());
 		return userDtos;
@@ -437,8 +436,6 @@ public class DashBoardServiceImpl implements DashBoardService {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
 		}
 	}
-
-
 
 
 	public ResponseEntity<?> getUserById(int id) {
@@ -494,66 +491,5 @@ public class DashBoardServiceImpl implements DashBoardService {
 		}
 	}
 
-	@Override
-	public ResponseEntity<?> getWalletBalance() throws JsonProcessingException {
-		String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements/balance";
-		HttpHeaders headers = appCommon.getHttpHeaders();
-		String network = "MTN";
 
-		try {
-			HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-			URI uri = UriComponentsBuilder.fromUriString(apiUrl)
-					.queryParam("network", network)
-					.build()
-					.toUri();
-			ResponseEntity<String> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, requestEntity, String.class);
-			HttpStatusCode statusCode = responseEntity.getStatusCode();
-			if (statusCode.is2xxSuccessful()) {
-				String responseBody = responseEntity.getBody();
-				SuccessDto successDto = SuccessDto.builder()
-						.message("Wallet Balance retrieved successfully")
-						.code(statusCode.value())
-						.status(statusCode.toString())
-						.data(responseBody)
-						.build();
-				return ResponseEntity.status(statusCode).body(successDto);
-			} else {
-				return ResponseEntity.status(statusCode).build();
-			}
-		} catch (RestClientException ex) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet balance: " + ex.getMessage());
-		}
-	}
-
-
-	@Override
-	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
-		String apiUrl = "https://api.valueadditionmicrofinance.com/v1/collections/balance";
-		HttpHeaders headers = appCommon.getHttpHeaders();
-
-		try {
-
-			HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-			ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, requestEntity, String.class);
-			HttpStatusCode statusCode = responseEntity.getStatusCode();
-
-			if (statusCode.is2xxSuccessful()) {
-				String responseBody = responseEntity.getBody();
-				SuccessDto successDto = SuccessDto.builder()
-						.message("Collections retrieved successfully")
-						.code(statusCode.value())
-						.status(statusCode.toString())
-						.data(responseBody)
-						.build();
-
-				return ResponseEntity.status(statusCode).body(successDto);
-			} else {
-				return ResponseEntity.status(statusCode).build();
-			}
-		} catch (RestClientException ex) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet collections:" + ex.getMessage());
-		}
-	}
 }

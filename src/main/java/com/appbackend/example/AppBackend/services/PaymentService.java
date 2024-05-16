@@ -27,4 +27,8 @@ public interface PaymentService {
 
 
     ResponseEntity<?> uploadDisbursementDocument(MultipartFile file, int disbursementId);
+
+	ResponseEntity<?> getWalletBalance() throws JsonProcessingException;
+
+	ResponseEntity<?> getWalletCollections() throws JsonProcessingException;
 }

@@ -113,13 +113,5 @@ public class DashboardController {
 	}
 
 
-	@GetMapping("/wallet/balance")
-	public ResponseEntity<?>  getWalletBalance() throws JsonProcessingException {
-		return dashboardService.getWalletBalance();
-	}
 
-	@GetMapping("/wallet/collection")
-	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
-		return dashboardService.getWalletCollections();
-	}
 }

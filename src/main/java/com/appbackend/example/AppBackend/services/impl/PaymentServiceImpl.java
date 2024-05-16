@@ -20,11 +20,14 @@ import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -499,5 +502,68 @@ public class PaymentServiceImpl implements PaymentService {
             e.printStackTrace();
         }
         return paymentMap;
+    }
+
+    @Override
+    public ResponseEntity<?> getWalletBalance() throws JsonProcessingException {
+        String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements/balance";
+        HttpHeaders headers = appCommon.getHttpHeaders();
+        String network = "MTN";
+
+        try {
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            URI uri = UriComponentsBuilder.fromUriString(apiUrl)
+                    .queryParam("network", network)
+                    .build()
+                    .toUri();
+            ResponseEntity<String> responseEntity = restTemplate.exchange(uri, HttpMethod.GET, requestEntity, String.class);
+            HttpStatusCode statusCode = responseEntity.getStatusCode();
+            if (statusCode.is2xxSuccessful()) {
+                String responseBody = responseEntity.getBody();
+                SuccessDto successDto = SuccessDto.builder()
+                        .message("Wallet Balance retrieved successfully")
+                        .code(statusCode.value())
+                        .status(statusCode.toString())
+                        .data(responseBody)
+                        .build();
+                return ResponseEntity.status(statusCode).body(successDto);
+            } else {
+                return ResponseEntity.status(statusCode).build();
+            }
+        } catch (RestClientException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet balance: " + ex.getMessage());
+        }
+    }
+
+
+    @Override
+    public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
+        String apiUrl = "https://api.valueadditionmicrofinance.com/v1/collections/balance";
+        HttpHeaders headers = appCommon.getHttpHeaders();
+
+        try {
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, requestEntity, String.class);
+            HttpStatusCode statusCode = responseEntity.getStatusCode();
+
+            if (statusCode.is2xxSuccessful()) {
+                String responseBody = responseEntity.getBody();
+                SuccessDto successDto = SuccessDto.builder()
+                        .message("Collections retrieved successfully")
+                        .code(statusCode.value())
+                        .status(statusCode.toString())
+                        .data(responseBody)
+                        .build();
+
+                return ResponseEntity.status(statusCode).body(successDto);
+            } else {
+                return ResponseEntity.status(statusCode).build();
+            }
+        } catch (RestClientException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet collections:" + ex.getMessage());
+        }
     }
 }

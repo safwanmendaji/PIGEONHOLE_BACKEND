@@ -82,6 +82,16 @@ public class PaymentController {
 		return paymentService.uploadDisbursementDocument(file,disbursementId);
 	}
 
+	@GetMapping("/wallet/balance")
+	public ResponseEntity<?>  getWalletBalance() throws JsonProcessingException {
+		return paymentService.getWalletBalance();
+	}
+
+	@GetMapping("/wallet/collection")
+	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
+		return paymentService.getWalletCollections();
+	}
+
 
 
 }
