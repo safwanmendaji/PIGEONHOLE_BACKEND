@@ -13,6 +13,7 @@ import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepositor
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.jsonwebtoken.io.IOException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -61,71 +63,116 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private StorageService storageService;
 
+
+
     @Override
     public ResponseEntity<?> payment(PaymentDto paymentDto) {
-       try {
-           Optional<User> optionalUser = userRepository.findByid(paymentDto.getUserId());
+        try {
+            Optional<User> optionalUser = userRepository.findById(paymentDto.getUserId());
 
-           if(!optionalUser.isPresent()){
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.NOT_FOUND.value())
-                       .status("ERROR")
-                       .message("USER NOT FOUND FOR THIS USERID : " + paymentDto.getUserId()).build();
-               return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-           }
+            if (!optionalUser.isPresent()) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.NOT_FOUND.value())
+                        .status("ERROR")
+                        .message("USER NOT FOUND FOR THIS USERID: " + paymentDto.getUserId())
+                        .build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
+            }
 
-//           Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
-           UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(paymentDto.getUserId());
+            UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(paymentDto.getUserId());
 
-           if(userCredit == null) {
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.BAD_REQUEST.value())
-                       .status("ERROR")
-                       .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
-                       .build();
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-           }
+            if (userCredit == null) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.BAD_REQUEST.value())
+                        .status("ERROR")
+                        .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
+                        .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
 
             double availableLoanAmount = userCredit.getAvailableBalance();
 
-           if(availableLoanAmount < paymentDto.getAmount()){
-               ErrorDto errorDto = ErrorDto.builder()
-                       .code(HttpStatus.BAD_REQUEST.value())
-                       .status("ERROR")
-                       .message("INSUFFICIENT BALANCE IN YOUR ACCOUNT. AVAILABLE BALANCE IS : "+ availableLoanAmount)
-                       .build();
-               return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-           }
+            if (availableLoanAmount < paymentDto.getAmount()) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.BAD_REQUEST.value())
+                        .status("ERROR")
+                        .message("INSUFFICIENT BALANCE IN YOUR ACCOUNT. AVAILABLE BALANCE IS: " + availableLoanAmount)
+                        .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            }
+
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = appCommon.getHttpHeaders();
+            headers.set("Content-Type", "application/json");
+            String url = "https://api.valueadditionmicrofinance.com/v1/disbursements/balance?network=MTN";
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            try {
+                ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+                String responseBody = responseEntity.getBody();
 
 
-           User user = optionalUser.get();
-           UUID uuid = UUID.randomUUID();
-           paymentDto.setReference(uuid);
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(responseBody);
 
-//           if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
-//               buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.REQUESTED , new DisbursementsHistory());
-//               SuccessDto successDto = SuccessDto.builder()
-//                       .message("YOUR DISBURSEMENT REQUEST SUBMITTED SUCCESSFULLY WHEN ADMIN APPROVE WE START PROCESS YOUR DISBURSEMENT." ).code(HttpStatus.OK.value()).status("SUCCESS").build();
-//               return ResponseEntity.status(HttpStatus.OK).body(successDto);
-//           }else {
-               DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE , new DisbursementsHistory());
+                JsonNode balanceNode = root.path("balance");
 
-               disbursementsHistory = processDisbursements(paymentDto, user , userCredit , disbursementsHistory);
+                double availableBalance = balanceNode.path("availableBalance").asDouble();
 
-               SuccessDto successDto = SuccessDto.builder().message("DISBURSEMENTS TRANSACTION STATUS IS : ." + disbursementsHistory.getPaymentStatus()).code(HttpStatus.OK.value()).status("SUCCESS").build();
+                System.out.println("------>"+availableBalance);
 
-               return ResponseEntity.status(HttpStatus.OK).body(successDto);
-//           }
+
+                if (paymentDto.getAmount() > availableBalance) {
+                    ErrorDto errorDto = ErrorDto.builder()
+                            .code(HttpStatus.BAD_REQUEST.value())
+                            .status("ERROR")
+                            .message("INSUFFICIENT BALANCE FROM THE EXTERNAL SOURCE")
+                            .build();
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+                }
+
+            } catch (HttpClientErrorException e) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.BAD_REQUEST.value())
+                        .status("ERROR")
+                        .message("Error fetching balance: " + e.getStatusCode())
+                        .build();
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+            } catch (Exception e) {
+                ErrorDto errorDto = ErrorDto.builder()
+                        .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                        .status("ERROR")
+                        .message("Error processing balance check: " + e.getMessage())
+                        .build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+            }
+
+            User user = optionalUser.get();
+            UUID uuid = UUID.randomUUID();
+            paymentDto.setReference(uuid);
+
+            DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE, new DisbursementsHistory());
+
+            disbursementsHistory = processDisbursements(paymentDto, user, userCredit, disbursementsHistory);
+
+            SuccessDto successDto = SuccessDto.builder()
+                    .message("DISBURSEMENTS TRANSACTION STATUS IS: " + disbursementsHistory.getPaymentStatus())
+                    .code(HttpStatus.OK.value())
+                    .status("SUCCESS")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+
         } catch (Exception ex) {
-           ErrorDto errorDto = ErrorDto.builder()
-                   .code(HttpStatus.NOT_FOUND.value())
-                   .status("ERROR")
-                   .message(ex.getMessage())
-                   .build();
+            ErrorDto errorDto = ErrorDto.builder()
+                    .code(HttpStatus.BAD_REQUEST.value())
+                    .status("ERROR")
+                    .message(ex.getMessage())
+                    .build();
 
-           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-
-       }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+        }
     }
 
     private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
