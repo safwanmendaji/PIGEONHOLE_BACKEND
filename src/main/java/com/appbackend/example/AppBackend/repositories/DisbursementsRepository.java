@@ -21,4 +21,6 @@ public interface DisbursementsRepository extends JpaRepository<DisbursementsHist
     void deleteByUserId(int userId);
 
     boolean existsByUserIdAndCollectionCompletedTrue(int userId);
+
+    List<DisbursementsHistory> findByPaymentStatusAndCollectionCompleted(String name, boolean b);
 }

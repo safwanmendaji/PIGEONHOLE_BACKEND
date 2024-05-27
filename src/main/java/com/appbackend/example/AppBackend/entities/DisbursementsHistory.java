@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
@@ -36,12 +37,12 @@ public class DisbursementsHistory {
     private String teamLeadName;
     private String teamLeadContactNumber;
     private String disbursementsRequest;
-    private Date startDate;
-    private Date endDate;
+    private Date startDateForTravel;
+    private Date endDateForTravel;
     private String destination;
     private UUID referenceId;
     private String narration;
-    private boolean approvedForTravel;
+    private Boolean approvedForTravel;
     @Lob
     private String document;
     private String travelDeclineReason;
@@ -54,7 +55,15 @@ public class DisbursementsHistory {
     private int createdBy;
     private LocalDateTime createdOn;
 
-    private Boolean collectionCompleted;
+    private Integer disbursementDuration;
+
+    private LocalDate disbursementEndDate;
+
+    private Boolean daysInArrears;
+
+
+
+    private Boolean collectionCompleted = false;
 
 //    @OneToMany(mappedBy = "history")
 //    private List<UtilizeUserCredit> utilizeUserCredits;

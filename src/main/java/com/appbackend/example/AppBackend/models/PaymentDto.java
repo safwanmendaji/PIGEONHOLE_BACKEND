@@ -21,6 +21,7 @@ public class PaymentDto {
 	private StudentDetails studentDetails;
 	private TravelDetails travelDetails;
 	private String reason;
+	private int numberOfDurationMonth;
 
 	@Lob
 	private String document;

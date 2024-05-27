@@ -70,11 +70,7 @@ public class PaymentController {
 //		return paymentService.getDisbursementStatus(id);
 //	}
 
-	@PostMapping("/collections")
-	public ResponseEntity<?>   getRecollectPayment(@RequestBody CollectionDto collectionDto) throws JsonProcessingException {
-		log.info("Inside Collection of Payment getRecollectPayment method Controller");
-		return  collectionService.getRecollectPayment(collectionDto);
-	}
+
 
 
 	@PostMapping("/disbursement/document/{disbursementId}")
@@ -87,10 +83,13 @@ public class PaymentController {
 		return paymentService.getWalletBalance();
 	}
 
-	@GetMapping("/wallet/collection")
-	public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
-		return paymentService.getWalletCollections();
+
+
+	@GetMapping("/check/success")
+	public ResponseEntity<?> test()  {
+		return paymentService.test();
 	}
+
 
 
 

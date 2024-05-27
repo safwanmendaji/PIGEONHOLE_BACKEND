@@ -1,15 +1,13 @@
 package com.appbackend.example.AppBackend.services.impl;
 
 import com.appbackend.example.AppBackend.common.AppCommon;
-import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
-import com.appbackend.example.AppBackend.entities.User;
-import com.appbackend.example.AppBackend.entities.UtilizeUserCredit;
+import com.appbackend.example.AppBackend.controllers.CollectionController;
+import com.appbackend.example.AppBackend.entities.*;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
+import com.appbackend.example.AppBackend.enums.InterestFrequency;
 import com.appbackend.example.AppBackend.models.*;
-import com.appbackend.example.AppBackend.repositories.DisbursementsRepository;
-import com.appbackend.example.AppBackend.repositories.UserRepository;
-import com.appbackend.example.AppBackend.repositories.UtilizeUserCreditRepository;
+import com.appbackend.example.AppBackend.repositories.*;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -30,7 +28,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -62,6 +62,22 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Autowired
     private StorageService storageService;
+
+    @Autowired
+    private InterestRepository interestRepository;
+
+    @Autowired
+    private CollectionHistoryRepository collectionHistoryRepository;
+
+    @Autowired
+    private DisbursementInterestCountRepository disbursementInterestCountRepository;
+
+
+    @Autowired
+    private CollectionAmountCalculationRepository collectionAmountCalculationRepository;
+
+    @Autowired
+    private MonthlyCollectionInfoRepository monthlyCollectionInfoRepository;
 
 
 
@@ -152,7 +168,7 @@ public class PaymentServiceImpl implements PaymentService {
             UUID uuid = UUID.randomUUID();
             paymentDto.setReference(uuid);
 
-            DisbursementsHistory disbursementsHistory = buildAndSaveDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE, new DisbursementsHistory());
+            DisbursementsHistory disbursementsHistory = buildDisbursementsHistory(paymentDto, user, DisbursementsStatus.INITIALIZE, new DisbursementsHistory());
 
             disbursementsHistory = processDisbursements(paymentDto, user, userCredit, disbursementsHistory);
 
@@ -180,17 +196,18 @@ public class PaymentServiceImpl implements PaymentService {
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
         HttpHeaders headers = appCommon.getHttpHeaders();
 
-        Map<String , Object> reqMap = buildDisbursementsReq(paymentDto, user);
-        disbursementsHistory.setDisbursementsRequest(reqMap.toString());
+        Map<String  ,  Object> requestMap = buildDisbursementsReq(paymentDto, user);
+        HttpEntity<?> apiRequestEntity = new HttpEntity<>(requestMap, headers);
+
+        disbursementsHistory.setDisbursementsRequest(requestMap.toString());
 
         disbursementsRepository.save(disbursementsHistory);
 
-        HttpEntity<Map> apiRequestEntity = new HttpEntity<>(buildDisbursementsReq(paymentDto, user), headers);
 
         ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
         String responseBody = responseEntity.getBody();
         ObjectMapper objectMapper = new ObjectMapper();
-        Map<String, Object> map = objectMapper.readValue(responseBody, Map.class);
+        Map<?  , ?> map = objectMapper.readValue(responseBody, Map.class);
 
         System.out.println("ResponseEntity ::: = > " + responseEntity);
         System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
@@ -207,6 +224,7 @@ public class PaymentServiceImpl implements PaymentService {
         calculateUtilization(paymentDto, userCredit, disbursementsHistory, status);
         return disbursementsHistory;
     }
+
 
     private void calculateUtilization(PaymentDto paymentDto, UtilizeUserCredit userUtilize, DisbursementsHistory disbursementsHistory, String status) {
         if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
@@ -237,12 +255,12 @@ public class PaymentServiceImpl implements PaymentService {
         Optional<DisbursementsHistory> response = disbursementsRepository.findById(id);
 
         if (response.isPresent()) {
-            DisbursementsHistory data = response.get();
+            DisbursementHistoryDTO dto = buildDisbursementDto(response.get() , true);
             SuccessDto successDto = SuccessDto.builder()
                     .message("DISBURSEMENTS TRANSACTION STATUS IS : .")
                     .code(HttpStatus.OK.value())
                     .status("SUCCESS")
-                    .data(data)
+                    .data(dto)
                     .build();
 
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
@@ -264,48 +282,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .collect(Collectors.toMap(Map.Entry::getKey, entry ->
                         entry.getValue().stream()
                                 .map(disbursement -> {
-                                    DisbursementHistoryDTO dto = new DisbursementHistoryDTO();
-                                    dto.setId(disbursement.getId());
-                                    dto.setUserId(disbursement.getUserId());
-                                    dto.setDisbursementsType(disbursement.getDisbursementsType());
-                                    dto.setAmount(disbursement.getAmount());
-                                    dto.setDisbursementsTransactionId(disbursement.getDisbursementsTransactionId());
-                                    dto.setDisbursementsResponse(disbursement.getDisbursementsResponse());
-                                    dto.setPaymentStatus(disbursement.getPaymentStatus());
-                                    dto.setStudentCode(disbursement.getStudentCode());
-                                    dto.setStudentName(disbursement.getStudentName());
-                                    dto.setSchoolName(disbursement.getSchoolName());
-                                    dto.setStudentClass(disbursement.getStudentClass());
-                                    dto.setOutstandingFees(disbursement.getOutstandingFees());
-                                    dto.setTeamLeadName(disbursement.getTeamLeadName());
-                                    dto.setTeamLeadContactNumber(disbursement.getTeamLeadContactNumber());
-                                    dto.setDisbursementsRequest(disbursement.getDisbursementsRequest());
-                                    dto.setStartDate(disbursement.getStartDate());
-                                    dto.setEndDate(disbursement.getEndDate());
-                                    dto.setDestination(disbursement.getDestination());
-                                    dto.setReferenceId(disbursement.getReferenceId());
-                                    dto.setNarration(disbursement.getNarration());
-                                    dto.setApprovedForTravel(disbursement.isApprovedForTravel());
-                                    dto.setDocument(disbursement.getDocument());
-                                    dto.setTravelDeclineReason(disbursement.getTravelDeclineReason());
-                                    dto.setReason(disbursement.getReason());
-                                    dto.setDisbursementFailReason(disbursement.getDisbursementFailReason());
-                                    dto.setApprovedBy(disbursement.getApprovedBy());
-                                    dto.setApprovedOn(disbursement.getApprovedOn());
-                                    dto.setUpdateBy(disbursement.getUpdateBy());
-                                    dto.setUpdateOn(disbursement.getUpdateOn());
-                                    dto.setCreatedBy(disbursement.getCreatedBy());
-                                    dto.setCreatedOn(disbursement.getCreatedOn());
-
-
-                                    User user = userRepository.findById(disbursement.getUserId()).orElse(null);
-                                    if (user != null) {
-                                        dto.setUsername(user.getFirstName());
-                                        dto.setMobile(user.getPhoneNumber());
-                                        dto.setEmail(user.getEmail());
-                                    }
-
-                                    return dto;
+                                    return buildDisbursementDto(disbursement ,  false);
                                 })
                                 .collect(Collectors.toList())));
 
@@ -319,53 +296,78 @@ public class PaymentServiceImpl implements PaymentService {
         return ResponseEntity.status(HttpStatus.OK).body(successDto);
     }
 
+    private DisbursementHistoryDTO buildDisbursementDto(DisbursementsHistory disbursement , boolean needInterestInfo) {
+        DisbursementHistoryDTO dto = new DisbursementHistoryDTO();
+        dto.setId(disbursement.getId());
+        dto.setUserId(disbursement.getUserId());
+        dto.setDisbursementsType(disbursement.getDisbursementsType());
+        dto.setAmount(disbursement.getAmount());
+        dto.setDisbursementsTransactionId(disbursement.getDisbursementsTransactionId());
+        dto.setDisbursementsResponse(disbursement.getDisbursementsResponse());
+        dto.setPaymentStatus(disbursement.getPaymentStatus());
+        dto.setStudentCode(disbursement.getStudentCode());
+        dto.setStudentName(disbursement.getStudentName());
+        dto.setSchoolName(disbursement.getSchoolName());
+        dto.setStudentClass(disbursement.getStudentClass());
+        dto.setOutstandingFees(disbursement.getOutstandingFees());
+        dto.setTeamLeadName(disbursement.getTeamLeadName());
+        dto.setTeamLeadContactNumber(disbursement.getTeamLeadContactNumber());
+        dto.setDisbursementsRequest(disbursement.getDisbursementsRequest());
+        dto.setStartDate(disbursement.getStartDateForTravel());
+        dto.setEndDate(disbursement.getEndDateForTravel());
+        dto.setDestination(disbursement.getDestination());
+        dto.setReferenceId(disbursement.getReferenceId());
+        dto.setNarration(disbursement.getNarration());
+        dto.setApprovedForTravel(disbursement.getApprovedForTravel());
+        dto.setDocument(disbursement.getDocument());
+        dto.setTravelDeclineReason(disbursement.getTravelDeclineReason());
+        dto.setReason(disbursement.getReason());
+        dto.setDisbursementFailReason(disbursement.getDisbursementFailReason());
+        dto.setApprovedBy(disbursement.getApprovedBy());
+        dto.setApprovedOn(disbursement.getApprovedOn());
+        dto.setUpdateBy(disbursement.getUpdateBy());
+        dto.setUpdateOn(disbursement.getUpdateOn());
+        dto.setCreatedBy(disbursement.getCreatedBy());
+        dto.setCreatedOn(disbursement.getCreatedOn());
+        dto.setDisbursementEndDate(disbursement.getDisbursementEndDate());
+        dto.setDaysInArray(disbursement.getDaysInArrears());
 
-    private void processTravelDisbursement(ApprovalDeclineDto dto , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
-        PaymentDto paymentDto = buildPaymentDtoForTravel(dto , disbursementsHistory);
-//        Pageable pageable = PageRequest.of(0, 1); // Limiting to 1 result
-        UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
-        Optional<User> user = userRepository.findByid(disbursementsHistory.getUserId());
-        processDisbursements(paymentDto,  user.get(), userCredit , disbursementsHistory);
-    }
+        User user = userRepository.findById(disbursement.getUserId()).orElse(null);
+        if (user != null) {
+            dto.setUsername(user.getFirstName());
+            dto.setMobile(user.getPhoneNumber());
+            dto.setEmail(user.getEmail());
+        }
 
-    private PaymentDto buildPaymentDtoForTravel(ApprovalDeclineDto dto, DisbursementsHistory disbursementsHistory) {
-        PaymentDto paymentDto = new PaymentDto();
-        paymentDto.setAmount(disbursementsHistory.getAmount());
-        paymentDto.setReference(disbursementsHistory.getReferenceId());
-        paymentDto.setDisbursementsType(DisbursementsType.valueOf(disbursementsHistory.getDisbursementsType()));
-        return paymentDto;
+        if(needInterestInfo){
+            try {
+                DisbursementInterestDto interestDto = new DisbursementInterestDto();
+                Optional<CollectionAmountCalculation> collectionAmountCalculationOptional = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
+                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFistByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
+                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findByDisbursementsHistoryId(disbursement.getId());
+
+                CollectionAmountCalculation collectionAmountCalculation = collectionAmountCalculationOptional.get();
+
+                interestDto.setDisbursementAmount((long) disbursement.getAmount());
+                interestDto.setAmountToPay(collectionAmountCalculation.getRemainingPayment());
+                interestDto.setMinimumAmountToPay(monthlyCollectionInfo.getMinimumAmount());
+                interestDto.setLastInterestCountDate(disbursementInterestCount.getInterestCalculationDate());
+                interestDto.setNextInterestCountDate(disbursementInterestCount.getInterestCalculationDate().plusWeeks(1));
+                interestDto.setLastPaymentDate(collectionAmountCalculation.getLastPaymentDate());
+                interestDto.setLastPaidAmount(collectionAmountCalculation.getPayAmount());
+
+                dto.setDisbursementInterestInfo(interestDto);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+
+        return dto;
     }
 
     @Override
     public ResponseEntity<?> getApprovedForTravel(ApprovalDeclineDto dto) throws JsonProcessingException {
-        try {
-            DisbursementsHistory entity = disbursementsRepository.findById(dto.getId()).orElse(null);
-//            if (entity != null) {
-//                if (dto.isApprove()) {
-//                    entity.setApprovedForTravel(true);
-//                    processTravelDisbursement(dto, entity);
-//                } else {
-//                    entity.setApprovedForTravel(false);
-//                    entity.setTravelDeclineReason(dto.getReason());
-//                }
-//                disbursementsRepository.save(entity);
-//                String message = "Record with ID " + dto.getId() + " approved for travel.";
-//                SuccessDto successDto = SuccessDto.builder()
-//                        .message(message)
-//                        .code(HttpStatus.OK.value())
-//                        .status("APPROVED")
-//                        .data(null)
-//                        .build();
-//                return ResponseEntity.status(HttpStatus.OK).body(successDto);
-//            } else {
-//                ErrorDto errorDto = ErrorDto.builder()
-//                        .message("Record with ID " + dto.getId() + " not found.")
-//                        .code(HttpStatus.NOT_FOUND.value())
-//                        .status("ERROR")
-//                        .build();
-//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
-//            }
-        }catch (Exception e){
+        try {}catch (Exception e){
             ErrorDto errorDto = ErrorDto.builder()
                     .message("Some thing when wrong. " + e.getMessage())
                     .code(HttpStatus.INTERNAL_SERVER_ERROR.value())
@@ -446,20 +448,27 @@ public class PaymentServiceImpl implements PaymentService {
             disbursementsHistory.setCollectionCompleted(false);
             PaymentDto paymentDto  = new PaymentDto();
             paymentDto.setAmount(disbursementsHistory.getAmount());
+
+            //Utilize the user credit
             UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
             calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
+
+            //Add Monthly amount calculation record
+            buildAndSaveMonthlyCollectionInfo(disbursementsHistory ,null);
+
+            // Add Record for interest count for 1st week
+            InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
+            DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.save(buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, null , null));
+
+
+            //Add Collection_Amount_Count Record
+            buildAndSaveCollectionAmount(disbursementInterestCount);
 
         }
         disbursementsRepository.save(disbursementsHistory);
     }
 
-    @Scheduled(fixedRate = 150000)
-    public void updateDisbursementStatusAndUtilization(){
-        System.out.println("Run Schedule:::");
-        List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatus(DisbursementsStatus.PENDING.name());
-        System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
-        disbursementsHistoryList.forEach(this::checkDisbursementStatusAndUpdate);
-    }
+
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
         try {
@@ -490,15 +499,16 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-    private DisbursementsHistory buildAndSaveDisbursementsHistory(PaymentDto paymentDto , User user , DisbursementsStatus disbursementsStatus , DisbursementsHistory disbursementsHistory) {
+    private DisbursementsHistory buildDisbursementsHistory(PaymentDto paymentDto , User user , DisbursementsStatus disbursementsStatus , DisbursementsHistory disbursementsHistory) {
         disbursementsHistory = new DisbursementsHistory();
+        LocalDate currentDate = LocalDate.now();
 
         try{
             if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
                 disbursementsHistory.setTeamLeadName(paymentDto.getTravelDetails().getTeamLeadName());
                 disbursementsHistory.setTeamLeadContactNumber(paymentDto.getTravelDetails().getTeamLeadContactNumber());
-                disbursementsHistory.setStartDate(paymentDto.getTravelDetails().getStartDate());
-                disbursementsHistory.setEndDate(paymentDto.getTravelDetails().getEndDate());
+                disbursementsHistory.setStartDateForTravel(paymentDto.getTravelDetails().getStartDate());
+                disbursementsHistory.setEndDateForTravel(paymentDto.getTravelDetails().getEndDate());
                 disbursementsHistory.setDestination(paymentDto.getTravelDetails().getDestination());
                 disbursementsHistory.setDocument(paymentDto.getDocument());
                 disbursementsHistory.setAmount(paymentDto.getAmount());
@@ -511,20 +521,26 @@ public class PaymentServiceImpl implements PaymentService {
                 disbursementsHistory.setStudentClass(paymentDto.getStudentDetails().getStudentClass());
                 if(paymentDto.getDocument() != null)
                     disbursementsHistory.setDocument(paymentDto.getDocument());
-                    disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
+                disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
             }else{
                 disbursementsHistory.setReason(paymentDto.getReason());
                 disbursementsHistory.setAmount(paymentDto.getAmount());
-
             }
+
             disbursementsHistory.setUserId(user.getId());
             disbursementsHistory.setCreatedOn(LocalDateTime.now());
             disbursementsHistory.setPaymentStatus(DisbursementsStatus.INITIALIZE.name());
             disbursementsHistory.setDisbursementsType(paymentDto.getDisbursementsType().name());
             disbursementsHistory.setNarration(paymentDto.getDisbursementsType().name());
             disbursementsHistory.setReferenceId(paymentDto.getReference());
+            disbursementsHistory.setDisbursementDuration(paymentDto.getNumberOfDurationMonth());
 
-            disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
+            LocalDate endDate = currentDate.plusMonths(paymentDto.getNumberOfDurationMonth());
+            disbursementsHistory.setDisbursementEndDate(endDate);
+            disbursementsHistory.setDaysInArrears(false);
+
+
+//            disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
 
         }catch (Exception e){
             e.printStackTrace();
@@ -584,33 +600,137 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
+
+
     @Override
-    public ResponseEntity<?> getWalletCollections() throws JsonProcessingException {
-        String apiUrl = "https://api.valueadditionmicrofinance.com/v1/collections/balance";
-        HttpHeaders headers = appCommon.getHttpHeaders();
+    public ResponseEntity<?> test() {
+//        updateDisbursementStatusAndUtilization();
+        return null;
+    }
 
-        try {
 
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+    private void disbursementsInterestCount(){
+        Optional<InterestCountMaster> interestCountMasterOptional = interestRepository.findFirstByOrderById();
+        if(interestCountMasterOptional.isPresent()) {
+            InterestCountMaster interestCountMaster = interestCountMasterOptional.get();
+            List<DisbursementsHistory> disbursementsHistoryList =  disbursementsRepository.findByPaymentStatusAndCollectionCompleted(DisbursementsStatus.SUCCEEDED.name() , false);
+            disbursementsHistoryList.forEach(disbursementsHistory -> {
+                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFistByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
 
-            ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.GET, requestEntity, String.class);
-            HttpStatusCode statusCode = responseEntity.getStatusCode();
+                Optional<CollectionAmountCalculation> collectionAmountCalculationOptional = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
+                CollectionAmountCalculation collectionAmountCalculation = collectionAmountCalculationOptional.orElse(null);
 
-            if (statusCode.is2xxSuccessful()) {
-                String responseBody = responseEntity.getBody();
-                SuccessDto successDto = SuccessDto.builder()
-                        .message("Collections retrieved successfully")
-                        .code(statusCode.value())
-                        .status(statusCode.toString())
-                        .data(responseBody)
-                        .build();
-
-                return ResponseEntity.status(statusCode).body(successDto);
-            } else {
-                return ResponseEntity.status(statusCode).build();
-            }
-        } catch (RestClientException ex) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet collections:" + ex.getMessage());
+                if(disbursementInterestCount != null){
+                    long interestCountDays = ChronoUnit.DAYS.between(disbursementInterestCount.getInterestCalculationDate(), LocalDate.now());
+                    if(interestCountMaster.getInterestFrequency().equals(InterestFrequency.WEEK.name())){
+                        disbursementInterestCountRepository.save(Objects.requireNonNull(weeklyInterestCount(interestCountMaster, disbursementsHistory, interestCountDays, collectionAmountCalculation, disbursementInterestCount)));
+                    }
+                }else {
+                    disbursementInterestCountRepository.save(buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, collectionAmountCalculation , null));
+                }
+            });
         }
     }
+
+    private static DisbursementInterestCount weeklyInterestCount(InterestCountMaster interestCountMaster, DisbursementsHistory disbursementsHistory, long interestCountDays, CollectionAmountCalculation collectionAmountCalculation, DisbursementInterestCount disbursementInterestCount) {
+        double interestCountAmount = 0;
+
+        if(interestCountDays > 7){
+            return buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, collectionAmountCalculation, disbursementInterestCount);
+        }
+        return null;
+
+    }
+
+
+    private static DisbursementInterestCount buildDisbursementInterestCount(InterestCountMaster interestCountMaster, DisbursementsHistory disbursementsHistory, CollectionAmountCalculation collectionAmountCalculation, DisbursementInterestCount disbursementInterestCount) {
+        double interestCountAmount;
+        DisbursementInterestCount   disbursementInterestCountNew = new DisbursementInterestCount();
+
+
+        disbursementInterestCountNew.setDisbursementsHistory(disbursementsHistory);
+        disbursementInterestCountNew.setInterestCountMaster(interestCountMaster);
+        disbursementInterestCountNew.setUserId(disbursementsHistory.getUserId());
+
+        if(collectionAmountCalculation != null){
+            interestCountAmount = collectionAmountCalculation.getRemainingPayment();
+        }else{
+            interestCountAmount = disbursementInterestCount != null ? disbursementInterestCount.getEndingBalance() : disbursementsHistory.getAmount();
+        }
+
+        double interestAmountMultiple = interestCountAmount * interestCountMaster.getInterestRate();
+        double finalInterestAmount = interestAmountMultiple / 100;
+
+
+        disbursementInterestCountNew.setInterestAmount((long) finalInterestAmount);
+        disbursementInterestCountNew.setBeginningBalance((long) interestCountAmount);
+        disbursementInterestCountNew.setEndingBalance((long) (finalInterestAmount + interestCountAmount));
+        disbursementInterestCountNew.setInterestCalculationDate(LocalDate.now());
+        return disbursementInterestCountNew;
+    }
+
+
+    private void buildAndSaveMonthlyCollectionInfo(DisbursementsHistory disbursementsHistory , MonthlyCollectionInfo monthlyCollectionInfoOld){
+        MonthlyCollectionInfo monthlyCollectionInfo = new MonthlyCollectionInfo();
+        InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
+        monthlyCollectionInfo.setDisbursementsHistory(disbursementsHistory);
+
+        if(monthlyCollectionInfoOld !=null){
+            LocalDate startDate = monthlyCollectionInfoOld.getMonthEndDate().plusDays(1);
+            monthlyCollectionInfo.setMinimumAmount(monthlyCollectionInfoOld.getMinimumAmount());
+            monthlyCollectionInfo.setMonthStartDate(startDate);
+            monthlyCollectionInfo.setMonthEndDate(startDate.plusMonths(1));
+            monthlyCollectionInfo.setTotalPayAmountInMonth(0.0);
+            if(disbursementsHistory.getDisbursementEndDate().isEqual(startDate.plusMonths(1))){
+                monthlyCollectionInfo.setLastMonth(true);
+            }
+        }else {
+            monthlyCollectionInfo.setDisbursementsHistory(disbursementsHistory);
+            monthlyCollectionInfo.setMinimumAmount(calculateLoanPayment(interestCountMaster.getInterestRate(), disbursementsHistory.getDisbursementDuration(), disbursementsHistory.getAmount()));
+            monthlyCollectionInfo.setMonthStartDate(disbursementsHistory.getCreatedOn().toLocalDate());
+            monthlyCollectionInfo.setMonthEndDate(disbursementsHistory.getCreatedOn().toLocalDate().plusMonths(1));
+            monthlyCollectionInfo.setTotalPayAmountInMonth(0.0);
+        }
+        monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
+    }
+
+
+        public static double calculateLoanPayment(double interestRate, int numberOfPeriods, double loanAmount) {
+            // Calculate the rate per period
+            double ratePerPeriod = interestRate / 100 * 4;
+
+            // Calculate the PMT
+            double pmt;
+            if (ratePerPeriod == 0) {
+                pmt = -(loanAmount / numberOfPeriods);
+            } else {
+                double factor = Math.pow(1 + ratePerPeriod, numberOfPeriods);
+                pmt = -(loanAmount * ratePerPeriod * factor / (factor - 1));
+            }
+
+            // Round up to the nearest thousand
+            double roundedUp = Math.ceil(pmt / 1000) * 1000;
+
+
+            // Multiply by -1 to change the sign
+            double roundUp = roundedUp * -1;
+            return roundUp + 1000;
+    }
+
+
+    private void buildAndSaveCollectionAmount(DisbursementInterestCount disbursementInterestCount){
+        CollectionAmountCalculation collectionAmountCalculation = new CollectionAmountCalculation();
+        collectionAmountCalculation.setDisbursementsHistory(disbursementInterestCount.getDisbursementsHistory());
+        collectionAmountCalculation.setRemainingPayment((double) disbursementInterestCount.getEndingBalance());
+        collectionAmountCalculation.setTotalPayAmount(0.0);
+        collectionAmountCalculation.setPayAmount(0.0);
+        collectionAmountCalculation.setUserId(disbursementInterestCount.getUserId());
+
+        collectionAmountCalculationRepository.save(collectionAmountCalculation);
+
+    }
+
+
+
+
 }

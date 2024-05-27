@@ -3,6 +3,7 @@ package com.appbackend.example.AppBackend.models;
 import jakarta.persistence.Lob;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.UUID;
@@ -49,4 +50,8 @@ public class DisbursementHistoryDTO {
     private String mobile;
 
     private String username;
+    private LocalDate disbursementEndDate;
+    private boolean daysInArray;
+
+    private DisbursementInterestDto disbursementInterestInfo;
 }

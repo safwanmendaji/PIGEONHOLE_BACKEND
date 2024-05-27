@@ -10,9 +10,10 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CollectionDto {
 
-    private String type;
     private String account;
-    private float amount;
-    private UUID reference;
-    private String narration;
+    private Double amount;
+    private Double mtnCharges;
+    private Double mtnChargesAmount;
+    private Double totalAmount;
+    private Integer disbursementId;
 }

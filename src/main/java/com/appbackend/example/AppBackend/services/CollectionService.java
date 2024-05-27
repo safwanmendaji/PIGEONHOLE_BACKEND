@@ -7,4 +7,7 @@ import org.springframework.http.ResponseEntity;
 
 public interface CollectionService {
     ResponseEntity<?> getRecollectPayment(CollectionDto collectionDto) throws JsonProcessingException;
+    ResponseEntity<?> calculateFinalAmountToPay(CollectionDto collectionDto);
+    ResponseEntity<?> getWalletCollections() throws JsonProcessingException;
+
 }
