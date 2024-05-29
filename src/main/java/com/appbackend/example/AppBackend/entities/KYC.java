@@ -46,6 +46,8 @@ public class KYC implements Serializable {
 
     private String nationalId;
 
+    private String workId;
+
     private String gender;
 
     private String age;
