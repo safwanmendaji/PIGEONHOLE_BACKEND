@@ -360,11 +360,13 @@ public class AuthController {
 			user.setIsApproved(false);
 			userRepository.save(user);
 
-			if (registerRequest.getRole() == 2 && documentData != null && userImage != null && digitalSignature != null) {
+			if (registerRequest.getRole() == 2 && documentData != null && userImage != null) {
 				String imageUrl = storageService.uploadFileToS3(userImage);
 				String documentUrl = storageService.uploadFileToS3(documentData);
-				String digitalSignatureUrl = storageService.uploadFileToS3(digitalSignature);
-
+				String digitalSignatureUrl =  null;
+				if(digitalSignature != null) {
+					digitalSignatureUrl = storageService.uploadFileToS3(digitalSignature);
+				}
 				kycService.saveUserKYC(registerRequest, documentUrl, imageUrl, digitalSignatureUrl, user);
 
 				SuccessDto successDto = SuccessDto.builder()

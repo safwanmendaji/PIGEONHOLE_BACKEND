@@ -330,7 +330,7 @@ public class PaymentServiceImpl implements PaymentService {
         dto.setCreatedBy(disbursement.getCreatedBy());
         dto.setCreatedOn(disbursement.getCreatedOn());
         dto.setDisbursementEndDate(disbursement.getDisbursementEndDate());
-        dto.setDaysInArray(disbursement.getDaysInArrears());
+        dto.setDaysInArray(disbursement.getDaysInArrears() != null ? disbursement.getDaysInArrears() : false);
 
         User user = userRepository.findById(disbursement.getUserId()).orElse(null);
         if (user != null) {
