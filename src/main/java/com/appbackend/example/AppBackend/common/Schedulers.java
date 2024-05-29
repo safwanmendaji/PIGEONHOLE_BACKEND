@@ -29,12 +29,15 @@ public class Schedulers {
     @Autowired
     private DisbursementInterestCountRepository disbursementInterestCountRepository;
 
+    @Autowired
+    private PaymentServiceImpl paymentServiceImpl;
+
     @Scheduled(fixedRate = 150000)
     public  void updateDisbursementStatusAndUtilization(){
         System.out.println("Run Schedule:::");
         List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatus(DisbursementsStatus.INITIALIZE.name());
         System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
-        PaymentServiceImpl paymentServiceImpl = new PaymentServiceImpl();
+//        PaymentServiceImpl paymentServiceImpl = new PaymentServiceImpl();
         disbursementsHistoryList.forEach(paymentServiceImpl::checkDisbursementStatusAndUpdate);
 
         List<CollectionHistory> collectionHistoryList = collectionHistoryRepository.findByStatus(DisbursementsStatus.INITIALIZE.name());

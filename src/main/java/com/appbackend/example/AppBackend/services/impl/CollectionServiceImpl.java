@@ -13,6 +13,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.java.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -28,9 +30,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 
-@Log
+
 @Service
 public class CollectionServiceImpl implements CollectionService {
+
+    Logger logger = LoggerFactory.getLogger(CollectionServiceImpl.class);
+
 
     @Autowired
     private AppCommon appCommon;
@@ -55,8 +60,9 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Override
     public ResponseEntity<?> getRecollectPayment(CollectionDto collectionDto) {
-        log.info("Inside getRecollectPayment method in CollectionServiceImpl");
+
         try {
+            logger.info("Inside getRecollectPayment Method in CollectionServiceImpl");
             Optional<DisbursementsHistory> disbursementsHistoryOptional = disbursementsRepository.findById(collectionDto.getDisbursementId());
             if(disbursementsHistoryOptional.isPresent()) {
                 DisbursementsHistory disbursementsHistory = disbursementsHistoryOptional.get();
@@ -82,6 +88,7 @@ public class CollectionServiceImpl implements CollectionService {
                 return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(errorDto);
             }
         } catch (Exception e) {
+            logger.error(String.valueOf(e));
             e.printStackTrace();
             ErrorDto errorDto = ErrorDto.builder()
                     .code(HttpStatus.BAD_REQUEST.value())
@@ -97,6 +104,7 @@ public class CollectionServiceImpl implements CollectionService {
             Map<String, Object> paymentMap = new HashMap<>();
 
             try {
+                logger.info("Inside BuildCollectionRequest Method in CollectionServiceImpl");
 
                 System.out.println("account==>>> " + collectionDto.getAccount());
                 paymentMap.put("type", "mm");
@@ -105,6 +113,7 @@ public class CollectionServiceImpl implements CollectionService {
                 paymentMap.put("narration", disbursementsHistory.getNarration()+"_COLLECTION");
                 paymentMap.put("reference",  UUID.randomUUID());
             }catch (Exception e){
+                logger.error(String.valueOf(e));
                 e.printStackTrace();
             }
             return paymentMap;
@@ -112,6 +121,7 @@ public class CollectionServiceImpl implements CollectionService {
 
 
     private CollectionHistory buildAndSaveCollectionHistory(CollectionDto collectionDto, DisbursementsHistory disbursementsHistory, Map<String, Object> collectionRequestMap) {
+        logger.info("Inside buildAndSaveCollectionHistory Method in CollectionServiceImpl");
         CollectionHistory collectionHistory = new CollectionHistory();
         collectionHistory.setUser(userRepository.findByid(disbursementsHistory.getUserId()).get());
         collectionHistory.setPaymentDate(LocalDateTime.now());
@@ -126,6 +136,7 @@ public class CollectionServiceImpl implements CollectionService {
 
     private CollectionHistory processPaymentCollection(Map<String, Object> collectionRequestMap, CollectionHistory collectionHistory) throws JsonProcessingException {
 
+        logger.info("Inside processPaymentCollection Method in CollectionServiceImpl");
             HttpHeaders headers = appCommon.getHttpHeaders();
             String apiUrl = "https://api.valueadditionmicrofinance.com/v1/collections";
             HttpEntity<Map> apiRequestEntity = new HttpEntity<>(collectionRequestMap, headers);
@@ -153,6 +164,8 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Override
     public ResponseEntity<?> calculateFinalAmountToPay(CollectionDto collectionDto) {
+
+        logger.info("Inside calculateFinalAmountToPay Method in CollectionServiceImpl");
         double multiplyAmount = collectionDto.getAmount() * 1.5;
         double mtnCharges = multiplyAmount / 100;
         System.out.println("mtnCharges Amount is ==>>> " + mtnCharges);
@@ -176,6 +189,7 @@ public class CollectionServiceImpl implements CollectionService {
         HttpHeaders headers = appCommon.getHttpHeaders();
 
         try {
+            logger.info("Inside getWalletCollections Method in CollectionServiceImpl");
             URI uri = UriComponentsBuilder.fromUriString(apiUrl)
                     .queryParam("network", "MTN")
                     .build()
@@ -199,11 +213,13 @@ public class CollectionServiceImpl implements CollectionService {
                 return ResponseEntity.status(statusCode).build();
             }
         } catch (RestClientException ex) {
+            logger.error(String.valueOf(ex));
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to retrieve wallet collections:" + ex.getMessage());
         }
     }
 
     public void checkCollectionStatusAndUpdate(CollectionHistory collectionHistory){
+        logger.info("Inside checkCollectionStatusAndUpdate Method in CollectionServiceImpl");
         String status = checkCollectionCheckStatus(collectionHistory.getResponseTransactionId() , null);
         collectionHistory.setStatus(status);
         if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
@@ -233,6 +249,7 @@ public class CollectionServiceImpl implements CollectionService {
 
     public  String checkCollectionCheckStatus(String transactionId, HttpHeaders headers) {
         try {
+            logger.info("Inside checkCollectionCheckStatus Method in CollectionServiceImpl");
             if(headers == null){
                 headers = appCommon.getHttpHeaders();
             }
@@ -256,6 +273,7 @@ public class CollectionServiceImpl implements CollectionService {
 
             return transactionStatus;
         } catch (Exception e) {
+            logger.error(String.valueOf(e));
             throw new RuntimeException(e);
         }
     }

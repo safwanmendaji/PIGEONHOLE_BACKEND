@@ -5,14 +5,19 @@ import com.appbackend.example.AppBackend.services.CollectionService;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.extern.java.Log;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.logging.Logger;
 
 @Log
 @RestController
 @RequestMapping("/collection")
 public class CollectionController {
+
+
 
     @Autowired
     private CollectionService collectionService;
