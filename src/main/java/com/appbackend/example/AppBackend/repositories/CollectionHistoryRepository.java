@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface CollectionHistoryRepository extends JpaRepository<CollectionHistory , Integer> {
     List<CollectionHistory> findByStatus(String name);
+
+    List<CollectionHistory> findByDisbursementsHistoryIdOrderByIdDesc(Integer id);
 }

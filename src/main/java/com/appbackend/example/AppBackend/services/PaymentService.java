@@ -1,6 +1,7 @@
 package com.appbackend.example.AppBackend.services;
 
 
+import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.models.ApprovalDeclineDto;
 import com.appbackend.example.AppBackend.models.CollectionDto;
 import com.appbackend.example.AppBackend.models.PaymentDto;
@@ -32,5 +33,7 @@ public interface PaymentService {
 	ResponseEntity<?> getWalletBalance() throws JsonProcessingException;
 
     ResponseEntity<?> test();
+
+	void checkDisbursementStatusAndUpdate(DisbursementsHistory disbursementsHistory);
 
 }

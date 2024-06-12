@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface MonthlyCollectionInfoRepository extends JpaRepository<MonthlyCollectionInfo , Integer> {
-    MonthlyCollectionInfo findByDisbursementsHistoryId(Integer id);
+
+    MonthlyCollectionInfo findFirstByDisbursementsHistoryIdOrderByIdDesc(Integer id);
 }

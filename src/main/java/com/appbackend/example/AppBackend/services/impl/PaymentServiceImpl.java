@@ -1,7 +1,6 @@
 package com.appbackend.example.AppBackend.services.impl;
 
 import com.appbackend.example.AppBackend.common.AppCommon;
-import com.appbackend.example.AppBackend.controllers.CollectionController;
 import com.appbackend.example.AppBackend.entities.*;
 import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.enums.DisbursementsType;
@@ -13,10 +12,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.jsonwebtoken.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -27,6 +27,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonValue;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,10 +42,13 @@ import java.util.stream.Collectors;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
-    @Autowired
-    private AppCommon appCommon;
+
+    Logger logger = LoggerFactory.getLogger(PaymentServiceImpl.class);
+//    @Autowired
+    private  AppCommon appCommon;
     @Autowired
     private RestTemplate restTemplate;
+
     @Value("${payment.username}")
     private String username;
 
@@ -80,31 +89,43 @@ public class PaymentServiceImpl implements PaymentService {
     private MonthlyCollectionInfoRepository monthlyCollectionInfoRepository;
 
 
+    public PaymentServiceImpl(){
+
+    }
+    @Autowired
+    PaymentServiceImpl(AppCommon appCommon){
+        this.appCommon = appCommon;
+    }
 
     @Override
     public ResponseEntity<?> payment(PaymentDto paymentDto) {
+        logger.info("Call payment method with request :: " + paymentDto);
         try {
+            logger.info("find user with userId : " + paymentDto.getUserId());
             Optional<User> optionalUser = userRepository.findById(paymentDto.getUserId());
-
+            logger.info("User Found ::: " + optionalUser.isPresent());
             if (!optionalUser.isPresent()) {
                 ErrorDto errorDto = ErrorDto.builder()
                         .code(HttpStatus.NOT_FOUND.value())
                         .status("ERROR")
                         .message("USER NOT FOUND FOR THIS USERID: " + paymentDto.getUserId())
                         .build();
+                logger.error("User not found :: " + paymentDto.getUserId());
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorDto);
             }
-
+            logger.info("check the UtilizeUserCredit ");
             UtilizeUserCredit userCredit = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(paymentDto.getUserId());
-
             if (userCredit == null) {
                 ErrorDto errorDto = ErrorDto.builder()
                         .code(HttpStatus.BAD_REQUEST.value())
                         .status("ERROR")
                         .message("DON'T HAVE ANY LOAN ELIGIBILITY AMOUNT IN YOUR ACCOUNT. PLEASE CONTACT TO ADMINISTRATOR.")
                         .build();
+                logger.info("UserCredit not found::: ");
+
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
             }
+            logger.info("UserCredit found::: ");
 
             double availableLoanAmount = userCredit.getAvailableBalance();
 
@@ -125,28 +146,28 @@ public class PaymentServiceImpl implements PaymentService {
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             try {
-                ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-                String responseBody = responseEntity.getBody();
-
-
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode root = mapper.readTree(responseBody);
-
-                JsonNode balanceNode = root.path("balance");
-
-                double availableBalance = balanceNode.path("availableBalance").asDouble();
-
-                System.out.println("------>"+availableBalance);
-
-
-                if (paymentDto.getAmount() > availableBalance) {
-                    ErrorDto errorDto = ErrorDto.builder()
-                            .code(HttpStatus.BAD_REQUEST.value())
-                            .status("ERROR")
-                            .message("INSUFFICIENT BALANCE FROM THE EXTERNAL SOURCE")
-                            .build();
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-                }
+//                ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+//                String responseBody = responseEntity.getBody();
+//
+//
+//                ObjectMapper mapper = new ObjectMapper();
+//                JsonNode root = mapper.readTree(responseBody);
+//
+//                JsonNode balanceNode = root.path("balance");
+//
+//                double availableBalance = balanceNode.path("availableBalance").asDouble();
+//
+//                logger.info("Balance in EXTERNAL SOURCE------>"+availableBalance);
+//
+//
+//                if (paymentDto.getAmount() > availableBalance) {
+//                    ErrorDto errorDto = ErrorDto.builder()
+//                            .code(HttpStatus.BAD_REQUEST.value())
+//                            .status("ERROR")
+//                            .message("INSUFFICIENT BALANCE FROM THE EXTERNAL SOURCE")
+//                            .build();
+//                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+//                }
 
             } catch (HttpClientErrorException e) {
                 ErrorDto errorDto = ErrorDto.builder()
@@ -192,31 +213,37 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private DisbursementsHistory processDisbursements(PaymentDto paymentDto, User user, UtilizeUserCredit userCredit , DisbursementsHistory disbursementsHistory) throws JsonProcessingException {
-
+        logger.info("Call processDisbursements method :");
         String apiUrl = "https://api.valueadditionmicrofinance.com/v1/disbursements";
         HttpHeaders headers = appCommon.getHttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON); // Ensure the content type is set
 
-        Map<String  ,  Object> requestMap = buildDisbursementsReq(paymentDto, user);
-        HttpEntity<?> apiRequestEntity = new HttpEntity<>(requestMap, headers);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String requestJson = objectMapper.writeValueAsString(buildDisbursementsReq(paymentDto, user)); // Convert request body to JSON string
+        logger.info("DisbursementsReq ::  " + requestJson);
 
-        disbursementsHistory.setDisbursementsRequest(requestMap.toString());
+        disbursementsHistory.setDisbursementsRequest(requestJson);
+
+        HttpEntity<String> apiRequestEntity = new HttpEntity<>(requestJson, headers);
 
         disbursementsRepository.save(disbursementsHistory);
 
+        logger.info("Call API with apiRequestEntity ::  " + apiRequestEntity);
 
         ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
         String responseBody = responseEntity.getBody();
-        ObjectMapper objectMapper = new ObjectMapper();
         Map<?  , ?> map = objectMapper.readValue(responseBody, Map.class);
 
-        System.out.println("ResponseEntity ::: = > " + responseEntity);
-        System.out.println("ResponseBody ::: = > " + responseEntity.getBody());
+        logger.info("ResponseEntity ::: = > " + responseEntity);
+        logger.info("ResponseBody ::: = > " + responseEntity.getBody());
 
         String refId = (String) map.get("transactionReference");
         disbursementsHistory.setDisbursementsResponse(responseBody);
         disbursementsHistory.setDisbursementsTransactionId(refId);
 
         String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , headers);
+        if(status.equals(DisbursementsStatus.INITIALIZE.name()) && (Integer) map.get("code") >= 200 && (Integer) map.get("code") <= 300)
+            status = DisbursementsStatus.PENDING.name();
         disbursementsHistory.setPaymentStatus(status);
 
         disbursementsHistory = disbursementsRepository.save(disbursementsHistory);
@@ -281,6 +308,7 @@ public class PaymentServiceImpl implements PaymentService {
         Map<String, List<DisbursementHistoryDTO>> groupedDtoData = groupedData.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry ->
                         entry.getValue().stream()
+                                .sorted((d1, d2) -> Long.compare(d2.getId(), d1.getId())) // Sort by ID in descending order
                                 .map(disbursement -> {
                                     return buildDisbursementDto(disbursement ,  false);
                                 })
@@ -318,7 +346,7 @@ public class PaymentServiceImpl implements PaymentService {
         dto.setDestination(disbursement.getDestination());
         dto.setReferenceId(disbursement.getReferenceId());
         dto.setNarration(disbursement.getNarration());
-        dto.setApprovedForTravel(disbursement.getApprovedForTravel());
+//        dto.setApprovedForTravel(disbursement.getApprovedForTravel());
         dto.setDocument(disbursement.getDocument());
         dto.setTravelDeclineReason(disbursement.getTravelDeclineReason());
         dto.setReason(disbursement.getReason());
@@ -339,14 +367,16 @@ public class PaymentServiceImpl implements PaymentService {
             dto.setEmail(user.getEmail());
         }
 
+
         if(needInterestInfo){
             try {
                 DisbursementInterestDto interestDto = new DisbursementInterestDto();
                 Optional<CollectionAmountCalculation> collectionAmountCalculationOptional = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
                 DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFistByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
-                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findByDisbursementsHistoryId(disbursement.getId());
-
+                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
                 CollectionAmountCalculation collectionAmountCalculation = collectionAmountCalculationOptional.get();
+
+
 
                 interestDto.setDisbursementAmount((long) disbursement.getAmount());
                 interestDto.setAmountToPay(collectionAmountCalculation.getRemainingPayment());
@@ -360,8 +390,34 @@ public class PaymentServiceImpl implements PaymentService {
             }catch (Exception e){
                 e.printStackTrace();
             }
+
+            logger.info("Find the Collection History :: ");
+            List<CollectionHistory> collectionHistoryList = collectionHistoryRepository.findByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
+            logger.info("Collection History List Size  ::: " + collectionHistoryList.size());
+
+
+            List<CollectionHistoryDTO> collectionHistoryDTOList = collectionHistoryList.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+            dto.setCollectionHistoryDTOList(collectionHistoryDTOList);
+
         }
 
+        return dto;
+    }
+
+    public  CollectionHistoryDTO convertToDto(CollectionHistory collectionHistory) {
+        CollectionHistoryDTO dto = new CollectionHistoryDTO();
+        dto.setId(collectionHistory.getId());
+        dto.setDisbursementsHistoryId(collectionHistory.getDisbursementsHistory() != null ? collectionHistory.getDisbursementsHistory().getId() : null);
+        dto.setResponseTransactionId(collectionHistory.getResponseTransactionId());
+        dto.setRequestTransactionId(collectionHistory.getRequestTransactionId());
+        dto.setPaymentAmount(collectionHistory.getPaymentAmount());
+        dto.setPaymentDate(collectionHistory.getPaymentDate());
+        dto.setUserId(collectionHistory.getUser() != null ? collectionHistory.getUser().getId() : null);
+        dto.setCollectionRequest(collectionHistory.getCollectionRequest());
+        dto.setStatus(collectionHistory.getStatus());
+        dto.setResponse(collectionHistory.getResponse());
         return dto;
     }
 
@@ -453,12 +509,14 @@ public class PaymentServiceImpl implements PaymentService {
             UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
             calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
 
-            //Add Monthly amount calculation record
-            buildAndSaveMonthlyCollectionInfo(disbursementsHistory ,null);
-
             // Add Record for interest count for 1st week
             InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
             DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.save(buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, null , null));
+
+
+            //Add Monthly amount calculation record
+            buildAndSaveMonthlyCollectionInfo(disbursementsHistory ,null);
+
 
 
             //Add Collection_Amount_Count Record
@@ -472,6 +530,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     public String checkDisbursementsCheckStatus(String transactionId , HttpHeaders headers) {
         try {
+            logger.info("header ::: " + headers);
             if(headers == null){
                 headers = appCommon.getHttpHeaders();
             }
@@ -502,7 +561,7 @@ public class PaymentServiceImpl implements PaymentService {
     private DisbursementsHistory buildDisbursementsHistory(PaymentDto paymentDto , User user , DisbursementsStatus disbursementsStatus , DisbursementsHistory disbursementsHistory) {
         disbursementsHistory = new DisbursementsHistory();
         LocalDate currentDate = LocalDate.now();
-
+        logger.info("Call buildDisbursementsHistory method:: ");
         try{
             if(paymentDto.getDisbursementsType().name().equals(DisbursementsType.TRAVEL_LOAN.name())){
                 disbursementsHistory.setTeamLeadName(paymentDto.getTravelDetails().getTeamLeadName());
@@ -548,7 +607,7 @@ public class PaymentServiceImpl implements PaymentService {
         return disbursementsHistory;
     }
 
-    private Map<String , Object> buildDisbursementsReq(PaymentDto paymentDto , User user){
+    private Map<String, Object> buildDisbursementsReq(PaymentDto paymentDto , User user){
         Map<String, Object> paymentMap = new HashMap<>();
 
         try {
@@ -561,10 +620,31 @@ public class PaymentServiceImpl implements PaymentService {
             paymentMap.put("narration", paymentDto.getDisbursementsType().name());
             paymentMap.put("reference", paymentDto.getReference());
 
+//
+//            // Convert the map to a JsonObject
+//            JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+//            for (Map.Entry<String, Object> entry : paymentMap.entrySet()) {
+//                String key = entry.getKey();
+//                Object value = entry.getValue();
+//
+//                if (value instanceof String) {
+//                    jsonObjectBuilder.add(key, (String) value);
+//                }  else if (value instanceof Float) {
+//                    jsonObjectBuilder.add(key, (Float) value);
+//                }else if (value instanceof UUID) {
+//                    jsonObjectBuilder.add(key,  value.toString());
+//                }
+//            }
+
+            // Build the JsonObject
+//            JsonObject jsonObject = jsonObjectBuilder.build();
+//            logger.info("Json ===>>> " + jsonObject);
+
+            return paymentMap;
         }catch (Exception e){
             e.printStackTrace();
         }
-        return paymentMap;
+        return null;
     }
 
     @Override
@@ -696,6 +776,8 @@ public class PaymentServiceImpl implements PaymentService {
 
 
         public static double calculateLoanPayment(double interestRate, int numberOfPeriods, double loanAmount) {
+
+
             // Calculate the rate per period
             double ratePerPeriod = interestRate / 100 * 4;
 
@@ -708,13 +790,22 @@ public class PaymentServiceImpl implements PaymentService {
                 pmt = -(loanAmount * ratePerPeriod * factor / (factor - 1));
             }
 
+            // Check if pmt is infinite
+            if (Double.isInfinite(pmt)) {
+                pmt = 0; // or handle it in another way as needed
+            }
+
             // Round up to the nearest thousand
             double roundedUp = Math.ceil(pmt / 1000) * 1000;
 
+            // Multiply by -1 to change the sign and add 1000
+            double finalAmount = (roundedUp * -1) + 1000;
 
-            // Multiply by -1 to change the sign
-            double roundUp = roundedUp * -1;
-            return roundUp + 1000;
+            // Use BigDecimal to round to 2 decimal places
+            BigDecimal bd = new BigDecimal(finalAmount);
+            bd = bd.setScale(2, RoundingMode.HALF_UP);
+
+            return bd.doubleValue();
     }
 
 

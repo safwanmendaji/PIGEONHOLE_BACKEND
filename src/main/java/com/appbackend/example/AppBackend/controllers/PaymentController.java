@@ -65,6 +65,12 @@ public class PaymentController {
 		return paymentService.getDisbursementHistoryOfUser(authentication);
 	}
 
+	@PostMapping("/final/amountToPay")
+	public ResponseEntity<?> calculateFinalAmountToPay(@RequestBody CollectionDto collectionDto) {
+//		log.info("Inside calculateFinalAmountToPay method Controller");
+		return collectionService.calculateFinalAmountToPay(collectionDto);
+	}
+
 //	@GetMapping("/disbursement/status/{id}")
 //	public ResponseEntity<?>  getDisbursementStatus(@PathVariable String id){
 //		return paymentService.getDisbursementStatus(id);

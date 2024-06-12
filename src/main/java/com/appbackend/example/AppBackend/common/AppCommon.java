@@ -24,6 +24,7 @@ import java.security.Key;
 
 @Component
 public class AppCommon {
+
     private final RestTemplate restTemplate;
     private final String username;
     private final String password;
@@ -35,6 +36,7 @@ public class AppCommon {
         this.username = username;
         this.password = password;
     }
+
 
     private String getPigeonToken(HttpHeaders headers) {
         restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
@@ -64,6 +66,7 @@ public class AppCommon {
         String accessToken = root.get("access_token").asText();
 
         headers.setBearerAuth(accessToken);
+//        headers.setContentType(MediaType.valueOf("application/json"));
         return headers;
     }
 

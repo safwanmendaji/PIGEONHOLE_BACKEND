@@ -40,7 +40,7 @@
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
             http.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/auth/**","/referral/verify/code" ).permitAll()
+                            .requestMatchers("/auth/**","/referral/verify/code","/payment/disbursement" ,"/collection/**").permitAll()
                             .requestMatchers("/dashboard/**","/payment/wallet/balance","payment/wallet/collection").hasAuthority("ADMIN")
                             .anyRequest().authenticated())
                     .exceptionHandling(ex -> ex.authenticationEntryPoint(point))

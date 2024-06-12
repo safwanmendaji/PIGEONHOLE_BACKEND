@@ -1,11 +1,13 @@
 package com.appbackend.example.AppBackend.models;
 
+import com.appbackend.example.AppBackend.entities.CollectionHistory;
 import jakarta.persistence.Lob;
 import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -54,4 +56,5 @@ public class DisbursementHistoryDTO {
     private boolean daysInArray;
 
     private DisbursementInterestDto disbursementInterestInfo;
+    private List<CollectionHistoryDTO> collectionHistoryDTOList;
 }
