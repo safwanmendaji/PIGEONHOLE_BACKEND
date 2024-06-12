@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.appbackend.example.AppBackend.services.KycCalculationDetailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -42,6 +44,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping(value = "/KYC")
 public class KYCController {
 
+    Logger logger = LoggerFactory.getLogger(KYCController.class);
+
     @Autowired
     KYCRepository kycRepository;
 
@@ -62,7 +66,9 @@ public class KYCController {
 
     @GetMapping("/docData")
     public ResponseEntity<?> getKYCDocData(@RequestParam Integer id) {
-        log.info("DOC DATA HERE HII");
+
+
+
 
         Object kycDocData = kycService.getUserKYCDocDataById(id);
 
@@ -116,12 +122,15 @@ public class KYCController {
 
     @GetMapping("/calculation/info")
     public Map<String, Object> getAllCreditInfo() {
+        logger.info("Inside GetALlCreditInfo Method in Kyc Controller");
         return kycCalculationDetailService.getAllCreditInfoGroupedByWorkplace();
     }
     
     
     @PostMapping("/update/{id}")
-    public ResponseEntity<?> updateKYC(@PathVariable int id) {
+    public ResponseEntity<?> updateKYC(@PathVariable int id)
+    {
+        logger.info("Inside UpdateKyc Method in Kyc Controller");
     	return kycService.updateKYC(id);
     }
 

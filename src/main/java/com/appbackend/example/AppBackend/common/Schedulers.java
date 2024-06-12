@@ -39,11 +39,11 @@ public class Schedulers {
 
     @Scheduled(fixedRate = 150000)
     public  void updateDisbursementStatusAndUtilization(){
-        logger.info("Run Schedule:::");
+        System.out.println("Run Schedule:::");
         List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatus(DisbursementsStatus.PENDING.name());
-        logger.info("Size Of Pending Status for disbursements :: " + disbursementsHistoryList.size());
-        disbursementsHistoryList = disbursementsHistoryList.stream().filter(disbursementsHistory -> disbursementsHistory.getDisbursementsTransactionId() != null).collect(Collectors.toList());
-        disbursementsHistoryList.forEach(paymentService::checkDisbursementStatusAndUpdate);
+        System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
+        PaymentServiceImpl paymentServiceImpl = new PaymentServiceImpl();
+        disbursementsHistoryList.forEach(paymentServiceImpl::checkDisbursementStatusAndUpdate);
 
         List<CollectionHistory> collectionHistoryList = collectionHistoryRepository.findByStatus(DisbursementsStatus.PENDING.name());
         logger.info("Size Of Pending Status for collection :: " + collectionHistoryList.size());
