@@ -14,4 +14,7 @@ public interface ReferralRepository extends JpaRepository<ReferralInfo,Integer> 
     Optional<ReferralInfo> findByReferalEmail(String email);
 
     Optional<ReferralInfo> findByReferalMobile(String mobile);
+
+
+    Optional<ReferralInfo> findByReferralCode(String referralCode);
 }

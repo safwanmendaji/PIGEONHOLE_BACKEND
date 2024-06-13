@@ -18,6 +18,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.security.SecureRandom;
 import java.util.Base64;
 
 import java.security.Key;
@@ -92,6 +93,15 @@ public class AppCommon {
     private static Key generateKey() {
         byte[] keyBytes = SECRET_KEY.getBytes(StandardCharsets.UTF_8);
         return new SecretKeySpec(keyBytes, "AES");
+    }
+
+    private static final SecureRandom secureRandom = new SecureRandom(); //threadsafe
+
+
+    public static String generateUniqueCode() {
+
+        int randomInt = secureRandom.nextInt(900000) + 100000; // Generates a number between 100000 and 999999
+        return String.valueOf(randomInt);
     }
 
 

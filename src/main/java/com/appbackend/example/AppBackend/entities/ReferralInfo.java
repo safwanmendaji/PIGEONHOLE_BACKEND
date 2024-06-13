@@ -26,8 +26,9 @@ public class ReferralInfo {
 
     private int userId;
 
-    private String referralString;
 
     private LocalDateTime DateTime;
+
+    private String referralCode;
 
 }

@@ -12,4 +12,6 @@ public interface ReferralService {
     ResponseEntity<?> referralFriend(ReferDto referDto, Authentication authentication);
 
     ResponseEntity<?> verifyReferralCode(ReferDto referDto);
+
+
 }
