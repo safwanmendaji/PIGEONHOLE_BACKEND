@@ -85,6 +85,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private MonthlyCollectionInfoRepository monthlyCollectionInfoRepository;
 
+    @Autowired
+    private TransactionHistoryRepository transactionHistoryRepository;
+
 
     public PaymentServiceImpl(){
 
@@ -519,6 +522,12 @@ public class PaymentServiceImpl implements PaymentService {
 
             //Add Collection_Amount_Count Record
             buildAndSaveCollectionAmount(disbursementInterestCount);
+
+            //Add Disbursement in TransactionHistory
+            TransactionHistory transactionHistory = new TransactionHistory();
+            transactionHistory.setDisbursementsHistory(disbursementsHistory);
+            transactionHistoryRepository.save(transactionHistory);
+
 
         }
         disbursementsRepository.save(disbursementsHistory);
