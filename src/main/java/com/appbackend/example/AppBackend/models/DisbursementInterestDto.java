@@ -15,5 +15,7 @@ public class DisbursementInterestDto {
     private LocalDate nextInterestCountDate;
     private LocalDateTime lastPaymentDate;
     private Double lastPaidAmount;
+    private LocalDate dueDate;
+
 
 }

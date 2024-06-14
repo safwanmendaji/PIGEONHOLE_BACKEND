@@ -25,6 +25,8 @@ public class MonthlyCollectionInfo {
     private Double totalPayAmountInMonth;
     private boolean payMinimumAmount;
     private boolean isLastMonth;
+    private Boolean isRescheduled;
+    private LocalDate rescheduleDate;
 
     @ManyToOne
     private DisbursementsHistory disbursementsHistory;

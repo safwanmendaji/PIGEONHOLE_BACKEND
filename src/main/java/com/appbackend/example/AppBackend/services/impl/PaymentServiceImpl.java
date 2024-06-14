@@ -383,6 +383,7 @@ public class PaymentServiceImpl implements PaymentService {
                 interestDto.setNextInterestCountDate(disbursementInterestCount.getInterestCalculationDate().plusWeeks(1));
                 interestDto.setLastPaymentDate(collectionAmountCalculation.getLastPaymentDate());
                 interestDto.setLastPaidAmount(collectionAmountCalculation.getPayAmount());
+                interestDto.setDueDate((monthlyCollectionInfo.getIsRescheduled() != null && monthlyCollectionInfo.getIsRescheduled()) ? monthlyCollectionInfo.getRescheduleDate() : monthlyCollectionInfo.getMonthEndDate());
 
                 dto.setDisbursementInterestInfo(interestDto);
             }catch (Exception e){

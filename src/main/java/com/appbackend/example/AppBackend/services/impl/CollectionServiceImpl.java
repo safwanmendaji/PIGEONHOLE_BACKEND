@@ -22,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,6 +44,9 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Autowired
     private DisbursementsRepository disbursementsRepository;
+
+    @Autowired
+    private ReschedulePaymentRecordRepository reschedulePaymentRecordRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -292,10 +296,47 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     public ResponseEntity<?> reschedulePaymentDate(RescheduleDto rescheduleDto) {
         try{
+            Optional<DisbursementsHistory> disbursementsHistoryOptional = disbursementsRepository.findById(rescheduleDto.getDisbursementId());
+            if(disbursementsHistoryOptional.isPresent()){
+                DisbursementsHistory disbursementsHistory =  disbursementsHistoryOptional.get();
+                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
+                if(monthlyCollectionInfo != null){
+                    monthlyCollectionInfo.setIsRescheduled(true);
+                    monthlyCollectionInfo.setRescheduleDate(rescheduleDto.getRescheduledDate());
+                    monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
+                }
+                ReschedulePaymentRecord reschedulePaymentRecord = new ReschedulePaymentRecord();
+                reschedulePaymentRecord.setRescheduleDate(LocalDate.now());
+                reschedulePaymentRecord.setMonthlyCollectionInfo(monthlyCollectionInfo);
+                reschedulePaymentRecord.setDisbursementsHistory(disbursementsHistory);
+                reschedulePaymentRecord.setUserId(disbursementsHistory.getUserId());
 
+                reschedulePaymentRecordRepository.save(reschedulePaymentRecord);
+
+                SuccessDto successDto = SuccessDto.builder()
+                        .message("Reschedule successfully")
+                        .code(200)
+                        .status("Success")
+                        .build();
+                return ResponseEntity.status(200).body(successDto);
+
+            }else{
+                ErrorDto errorDto = ErrorDto.builder()
+                        .message("Disbursement record not found")
+                        .code(404)
+                        .status("ERROR")
+                        .build();
+                return ResponseEntity.status(404).body(errorDto);
+            }
         }catch (Exception e){
+    e.printStackTrace();
+            ErrorDto errorDto = ErrorDto.builder()
+                    .message("Something when wrong")
+                    .code(500)
+                    .status("ERROR")
+                    .build();
+            return ResponseEntity.status(500).body(errorDto);
 
         }
-        return null;
     }
 }

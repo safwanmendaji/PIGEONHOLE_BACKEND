@@ -6,7 +6,7 @@ import java.time.LocalDate;
 
 @Data
 public class RescheduleDto {
-    private long disbursementId;
+    private int disbursementId;
     private LocalDate rescheduledDate;
 
 
