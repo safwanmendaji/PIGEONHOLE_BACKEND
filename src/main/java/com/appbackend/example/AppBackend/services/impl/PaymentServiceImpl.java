@@ -147,28 +147,28 @@ public class PaymentServiceImpl implements PaymentService {
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             try {
-//                ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-//                String responseBody = responseEntity.getBody();
-//
-//
-//                ObjectMapper mapper = new ObjectMapper();
-//                JsonNode root = mapper.readTree(responseBody);
-//
-//                JsonNode balanceNode = root.path("balance");
-//
-//                double availableBalance = balanceNode.path("availableBalance").asDouble();
-//
-//                logger.info("Balance in EXTERNAL SOURCE------>"+availableBalance);
-//
-//
-//                if (paymentDto.getAmount() > availableBalance) {
-//                    ErrorDto errorDto = ErrorDto.builder()
-//                            .code(HttpStatus.BAD_REQUEST.value())
-//                            .status("ERROR")
-//                            .message("INSUFFICIENT BALANCE FROM THE EXTERNAL SOURCE")
-//                            .build();
-//                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
-//                }
+                ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+                String responseBody = responseEntity.getBody();
+
+
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(responseBody);
+
+                JsonNode balanceNode = root.path("balance");
+
+                double availableBalance = balanceNode.path("availableBalance").asDouble();
+
+                logger.info("Balance in EXTERNAL SOURCE------>"+availableBalance);
+
+
+                if (paymentDto.getAmount() > availableBalance) {
+                    ErrorDto errorDto = ErrorDto.builder()
+                            .code(HttpStatus.BAD_REQUEST.value())
+                            .status("ERROR")
+                            .message("INSUFFICIENT BALANCE FROM THE EXTERNAL SOURCE")
+                            .build();
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDto);
+                }
 
             } catch (HttpClientErrorException e) {
                 ErrorDto errorDto = ErrorDto.builder()
@@ -227,8 +227,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         HttpEntity<String> apiRequestEntity = new HttpEntity<>(requestJson, headers);
 
-        disbursementsRepository.save(disbursementsHistory);
-
+        disbursementsHistory =  disbursementsRepository.save(disbursementsHistory);
+        appCommon.buildAndSaveTransactionHistory(disbursementsHistory , user.getId());
         logger.info("Call API with apiRequestEntity ::  " + apiRequestEntity);
 
         ResponseEntity<String> responseEntity = restTemplate.exchange(apiUrl, HttpMethod.POST, apiRequestEntity, String.class);
@@ -500,39 +500,37 @@ public class PaymentServiceImpl implements PaymentService {
 
 
     public void checkDisbursementStatusAndUpdate(DisbursementsHistory disbursementsHistory){
-        String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId() , null);
-        disbursementsHistory.setPaymentStatus(status);
-        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
-            disbursementsHistory.setCollectionCompleted(false);
-            PaymentDto paymentDto  = new PaymentDto();
-            paymentDto.setAmount(disbursementsHistory.getAmount());
+        if(disbursementsHistory.getPaymentStatus().equals(DisbursementsStatus.INITIALIZE.name()) && disbursementsHistory.getDisbursementsResponse() == null){
+            disbursementsHistory.setPaymentStatus(DisbursementsStatus.FAILED.name());
+        }else {
+            String status = checkDisbursementsCheckStatus(disbursementsHistory.getDisbursementsTransactionId(), null);
+            disbursementsHistory.setPaymentStatus(status);
+            if (status.equals(DisbursementsStatus.SUCCEEDED.name())) {
+                disbursementsHistory.setCollectionCompleted(false);
+                PaymentDto paymentDto = new PaymentDto();
+                paymentDto.setAmount(disbursementsHistory.getAmount());
 
-            //Utilize the user credit
-            UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
-            calculateUtilization(paymentDto , userCreditUtilize , disbursementsHistory , status);
+                //Utilize the user credit
+                UtilizeUserCredit userCreditUtilize = utilizeUserCreditRepository.findFirstByUserIdOrderByIdDesc(disbursementsHistory.getUserId());
+                calculateUtilization(paymentDto, userCreditUtilize, disbursementsHistory, status);
 
-            // Add Record for interest count for 1st week
-            InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
-            DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.save(buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, null , null));
-
-
-            //Add Monthly amount calculation record
-            buildAndSaveMonthlyCollectionInfo(disbursementsHistory ,null);
-
+                // Add Record for interest count for 1st week
+                InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
+                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.save(buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, null, null));
 
 
-            //Add Collection_Amount_Count Record
-            buildAndSaveCollectionAmount(disbursementInterestCount);
-
-            //Add Disbursement in TransactionHistory
-            TransactionHistory transactionHistory = new TransactionHistory();
-            transactionHistory.setDisbursementsHistory(disbursementsHistory);
-            transactionHistoryRepository.save(transactionHistory);
+                //Add Monthly amount calculation record
+                buildAndSaveMonthlyCollectionInfo(disbursementsHistory, null);
 
 
+                //Add Collection_Amount_Count Record
+                buildAndSaveCollectionAmount(disbursementInterestCount);
+
+            }
         }
         disbursementsRepository.save(disbursementsHistory);
     }
+
 
 
 

@@ -71,6 +71,8 @@ public class CollectionServiceImpl implements CollectionService {
                 Map<String , Object> collectionRequestMap = buildCollectionRequest(collectionDto , disbursementsHistory);
                 CollectionHistory collectionHistory = buildAndSaveCollectionHistory(collectionDto , disbursementsHistory , collectionRequestMap);
 
+                appCommon.buildAndSaveTransactionHistory(collectionHistory , disbursementsHistory.getUserId());
+
                 processPaymentCollection(collectionRequestMap , collectionHistory);
                 log.info("====================================");
 //                log.info("Transaction Done ++ " + collectionHistory);
@@ -147,6 +149,7 @@ public class CollectionServiceImpl implements CollectionService {
 
         ObjectMapper objectMapper = new ObjectMapper();
         String requestJson = objectMapper.writeValueAsString(collectionRequestMap); // Convert request body to JSON string
+
 
         HttpEntity<String> apiRequestEntity = new HttpEntity<>(requestJson, headers);
 
@@ -237,28 +240,32 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     public void checkCollectionStatusAndUpdate(CollectionHistory collectionHistory){
-        String status = checkCollectionCheckStatus(collectionHistory.getResponseTransactionId() , null);
-        collectionHistory.setStatus(status);
-        if(status.equals(DisbursementsStatus.SUCCEEDED.name())){
-            CollectionAmountCalculation collectionAmountCalculationOld = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(collectionHistory.getDisbursementsHistory().getId()).get();
-            CollectionAmountCalculation collectionAmountCalculation = new CollectionAmountCalculation();
-            collectionAmountCalculation.setPayAmount(collectionHistory.getPaymentAmount());
-            collectionAmountCalculation.setTotalPayAmount(collectionAmountCalculationOld.getTotalPayAmount() + collectionHistory.getPaymentAmount());
-            collectionAmountCalculation.setRemainingPayment(collectionAmountCalculationOld.getRemainingPayment() - collectionHistory.getPaymentAmount());
-            collectionAmountCalculation.setUserId(collectionHistory.getUser().getId());
-            collectionAmountCalculation.setLastPaymentDate(collectionHistory.getPaymentDate());
-            collectionAmountCalculation.setDisbursementsHistory(collectionHistory.getDisbursementsHistory());
+        if(collectionHistory.getStatus().equals(DisbursementsStatus.INITIALIZE.name()) && collectionHistory.getResponse() == null){
+            collectionHistory.setStatus(DisbursementsStatus.FAILED.name());
+        }else {
+            String status = checkCollectionCheckStatus(collectionHistory.getResponseTransactionId(), null);
+            collectionHistory.setStatus(status);
+            if (status.equals(DisbursementsStatus.SUCCEEDED.name())) {
+                CollectionAmountCalculation collectionAmountCalculationOld = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(collectionHistory.getDisbursementsHistory().getId()).get();
+                CollectionAmountCalculation collectionAmountCalculation = new CollectionAmountCalculation();
+                collectionAmountCalculation.setPayAmount(collectionHistory.getPaymentAmount());
+                collectionAmountCalculation.setTotalPayAmount(collectionAmountCalculationOld.getTotalPayAmount() + collectionHistory.getPaymentAmount());
+                collectionAmountCalculation.setRemainingPayment(collectionAmountCalculationOld.getRemainingPayment() - collectionHistory.getPaymentAmount());
+                collectionAmountCalculation.setUserId(collectionHistory.getUser().getId());
+                collectionAmountCalculation.setLastPaymentDate(collectionHistory.getPaymentDate());
+                collectionAmountCalculation.setDisbursementsHistory(collectionHistory.getDisbursementsHistory());
 
-             collectionAmountCalculationRepository.save(collectionAmountCalculation);
+                collectionAmountCalculationRepository.save(collectionAmountCalculation);
 
 
-            MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(collectionHistory.getDisbursementsHistory().getId());
-            monthlyCollectionInfo.setTotalPayAmountInMonth(monthlyCollectionInfo.getTotalPayAmountInMonth() + collectionHistory.getPaymentAmount());
-            if(monthlyCollectionInfo.getMinimumAmount() <= monthlyCollectionInfo.getTotalPayAmountInMonth())
-                monthlyCollectionInfo.setPayMinimumAmount(true);
+                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(collectionHistory.getDisbursementsHistory().getId());
+                monthlyCollectionInfo.setTotalPayAmountInMonth(monthlyCollectionInfo.getTotalPayAmountInMonth() + collectionHistory.getPaymentAmount());
+                if (monthlyCollectionInfo.getMinimumAmount() <= monthlyCollectionInfo.getTotalPayAmountInMonth())
+                    monthlyCollectionInfo.setPayMinimumAmount(true);
 
-            monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
+                monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
 
+            }
         }
         collectionHistoryRepository.save(collectionHistory);
     }

@@ -11,4 +11,6 @@ public interface CollectionHistoryRepository extends JpaRepository<CollectionHis
     List<CollectionHistory> findByStatus(String name);
 
     List<CollectionHistory> findByDisbursementsHistoryIdOrderByIdDesc(Integer id);
+
+    List<CollectionHistory> findByStatusIn(List<String> statuses);
 }

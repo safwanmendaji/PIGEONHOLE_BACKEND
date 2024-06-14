@@ -22,9 +22,8 @@ public class TransactionHistory {
     @JoinColumn(name = "collection_history_id")
     private CollectionHistory collectionHistory;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+
+    private Integer userId;
 
     private LocalDateTime localDateTime;
 }

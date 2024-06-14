@@ -1,8 +1,14 @@
 package com.appbackend.example.AppBackend.common;
 
+import com.appbackend.example.AppBackend.entities.CollectionHistory;
+import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
+import com.appbackend.example.AppBackend.entities.TransactionHistory;
+import com.appbackend.example.AppBackend.entities.User;
+import com.appbackend.example.AppBackend.repositories.TransactionHistoryRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +25,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.Base64;
 
 import java.security.Key;
@@ -30,6 +37,9 @@ public class AppCommon {
     private final String username;
     private final String password;
 
+
+    @Autowired
+    private TransactionHistoryRepository transactionHistoryRepository;
 
     public AppCommon(RestTemplate restTemplate, @Value("${payment.username}") String username,
                      @Value("${payment.password}") String password) {
@@ -69,6 +79,19 @@ public class AppCommon {
         headers.setBearerAuth(accessToken);
 //        headers.setContentType(MediaType.valueOf("application/json"));
         return headers;
+    }
+
+
+    public void buildAndSaveTransactionHistory(Object history ,  Integer userId) {
+        TransactionHistory transactionHistory = new TransactionHistory();
+        if(history instanceof DisbursementsHistory) {
+            transactionHistory.setDisbursementsHistory((DisbursementsHistory) history);
+        }else if(history instanceof CollectionHistory){
+            transactionHistory.setCollectionHistory((CollectionHistory) history);
+        }
+        transactionHistory.setLocalDateTime(LocalDateTime.now());
+        transactionHistory.setUserId(userId);
+        transactionHistoryRepository.save(transactionHistory);
     }
 
     private static final String SECRET_KEY = "pigeonhole123567"; // 16 bytes for AES-128

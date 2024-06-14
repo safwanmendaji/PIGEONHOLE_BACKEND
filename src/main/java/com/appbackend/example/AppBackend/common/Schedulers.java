@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,12 +41,14 @@ public class Schedulers {
     @Scheduled(fixedRate = 150000)
     public  void updateDisbursementStatusAndUtilization(){
         System.out.println("Run Schedule:::");
-        List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatus(DisbursementsStatus.PENDING.name());
-        System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
-        PaymentServiceImpl paymentServiceImpl = new PaymentServiceImpl();
-        disbursementsHistoryList.forEach(paymentServiceImpl::checkDisbursementStatusAndUpdate);
+        List<String> statuses = Arrays.asList(DisbursementsStatus.PENDING.name(), DisbursementsStatus.INITIALIZE.name());
 
-        List<CollectionHistory> collectionHistoryList = collectionHistoryRepository.findByStatus(DisbursementsStatus.PENDING.name());
+        List<DisbursementsHistory> disbursementsHistoryList = disbursementsRepository.findByPaymentStatusIn(statuses);
+        System.out.println("Size Of Pending Status :: " + disbursementsHistoryList.size());
+        disbursementsHistoryList.forEach(paymentService::checkDisbursementStatusAndUpdate);
+
+
+        List<CollectionHistory> collectionHistoryList = collectionHistoryRepository.findByStatusIn(statuses);
         logger.info("Size Of Pending Status for collection :: " + collectionHistoryList.size());
         collectionHistoryList.forEach(collectionService::checkCollectionStatusAndUpdate);
     }

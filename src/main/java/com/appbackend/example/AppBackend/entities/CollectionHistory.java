@@ -27,7 +27,6 @@ public class CollectionHistory {
     private String requestTransactionId;
 
     private double paymentAmount;
-
     private LocalDateTime paymentDate;
 
     @ManyToOne

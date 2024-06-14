@@ -23,4 +23,6 @@ public interface DisbursementsRepository extends JpaRepository<DisbursementsHist
     boolean existsByUserIdAndCollectionCompletedTrue(int userId);
 
     List<DisbursementsHistory> findByPaymentStatusAndCollectionCompleted(String name, boolean b);
+
+    List<DisbursementsHistory> findByPaymentStatusIn(List<String> statuses);
 }
