@@ -6,5 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DisbursementInterestCountRepository extends JpaRepository<DisbursementInterestCount , Integer> {
-    DisbursementInterestCount findFistByDisbursementsHistoryIdOrderByIdDesc(Integer id);
+    DisbursementInterestCount findFirstByDisbursementsHistoryIdOrderByIdDesc(Integer id);
 }

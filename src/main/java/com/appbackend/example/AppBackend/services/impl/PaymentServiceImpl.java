@@ -7,6 +7,7 @@ import com.appbackend.example.AppBackend.enums.DisbursementsType;
 import com.appbackend.example.AppBackend.enums.InterestFrequency;
 import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.*;
+import com.appbackend.example.AppBackend.services.OtpService;
 import com.appbackend.example.AppBackend.services.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -36,6 +37,8 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static java.time.temporal.ChronoUnit.DAYS;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
@@ -88,6 +91,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private TransactionHistoryRepository transactionHistoryRepository;
 
+
+    @Autowired
+    private OtpService otpService;
 
     public PaymentServiceImpl(){
 
@@ -194,11 +200,14 @@ public class PaymentServiceImpl implements PaymentService {
 
             disbursementsHistory = processDisbursements(paymentDto, user, userCredit, disbursementsHistory);
 
+            String msg = "Your loan information is used to offer you future loans. If you do not pay your loan, a negative rating can restrict your access to loans.";
+
             SuccessDto successDto = SuccessDto.builder()
-                    .message("DISBURSEMENTS TRANSACTION STATUS IS: " + disbursementsHistory.getPaymentStatus())
+                    .message(msg)
                     .code(HttpStatus.OK.value())
                     .status("SUCCESS")
                     .build();
+
 
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
 
@@ -368,13 +377,23 @@ public class PaymentServiceImpl implements PaymentService {
             dto.setEmail(user.getEmail());
         }
 
+        MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
+        long checkRescheduledDays;
+        if(monthlyCollectionInfo.getIsRescheduled() != null && monthlyCollectionInfo.getIsRescheduled()){
+            checkRescheduledDays = DAYS.between(LocalDate.now(), monthlyCollectionInfo.getRescheduleDate());
+        }else{
+            checkRescheduledDays = DAYS.between(monthlyCollectionInfo.getMonthEndDate(), LocalDate.now());
+        }
+        if(checkRescheduledDays <= 7 ){
+            dto.setRescheduleEnable(true);
+        }
+        dto.setDisbursementCompleted(disbursement.getCollectionCompleted() != null ? disbursement.getCollectionCompleted() : false);
 
         if(needInterestInfo){
             try {
                 DisbursementInterestDto interestDto = new DisbursementInterestDto();
                 Optional<CollectionAmountCalculation> collectionAmountCalculationOptional = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
-                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFistByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
-                MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
+                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursement.getId());
                 CollectionAmountCalculation collectionAmountCalculation = collectionAmountCalculationOptional.get();
 
 
@@ -384,7 +403,7 @@ public class PaymentServiceImpl implements PaymentService {
                 interestDto.setMinimumAmountToPay(monthlyCollectionInfo.getMinimumAmount());
                 interestDto.setLastInterestCountDate(disbursementInterestCount.getInterestCalculationDate());
                 interestDto.setNextInterestCountDate(disbursementInterestCount.getInterestCalculationDate().plusWeeks(1));
-                interestDto.setLastPaymentDate(collectionAmountCalculation.getLastPaymentDate());
+                interestDto.setLastPaymentDate(collectionAmountCalculation.getLastTransactionDate());
                 interestDto.setLastPaidAmount(collectionAmountCalculation.getPayAmount());
                 interestDto.setDueDate((monthlyCollectionInfo.getIsRescheduled() != null && monthlyCollectionInfo.getIsRescheduled()) ? monthlyCollectionInfo.getRescheduleDate() : monthlyCollectionInfo.getMonthEndDate());
 
@@ -404,6 +423,7 @@ public class PaymentServiceImpl implements PaymentService {
             dto.setCollectionHistoryDTOList(collectionHistoryDTOList);
 
         }
+
 
         return dto;
     }
@@ -520,11 +540,24 @@ public class PaymentServiceImpl implements PaymentService {
 
 
                 //Add Monthly amount calculation record
-                buildAndSaveMonthlyCollectionInfo(disbursementsHistory, null);
+                monthlyCollectionInfoRepository.save(buildAndSaveMonthlyCollectionInfo(disbursementsHistory, null , interestCountMaster));
 
 
                 //Add Collection_Amount_Count Record
                 buildAndSaveCollectionAmount(disbursementInterestCount);
+
+
+
+                try {
+                    User user = userRepository.findByid(disbursementsHistory.getUserId()).get();
+
+                    String msg = "Your loan information is used to offer you future loans. If you do not pay your loan, a negative rating can restrict your access to loans.";
+
+                    otpService.sendEmail(user.getEmail(), "Disbursement Successfully", msg);
+                    otpService.sendSms(user.getPhoneNumber(), null, msg);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
 
             }
         }
@@ -577,6 +610,7 @@ public class PaymentServiceImpl implements PaymentService {
                 disbursementsHistory.setDestination(paymentDto.getTravelDetails().getDestination());
                 disbursementsHistory.setDocument(paymentDto.getDocument());
                 disbursementsHistory.setAmount(paymentDto.getAmount());
+                disbursementsHistory.setDisbursementsType("TRAVEL LOAN");
 
             }else if( paymentDto.getDisbursementsType().name().equals(DisbursementsType.SCHOOL_FEES.name()) ){
                 disbursementsHistory.setStudentCode(paymentDto.getStudentDetails().getStudentCode());
@@ -587,9 +621,13 @@ public class PaymentServiceImpl implements PaymentService {
                 if(paymentDto.getDocument() != null)
                     disbursementsHistory.setDocument(paymentDto.getDocument());
                 disbursementsHistory.setAmount(paymentDto.getStudentDetails().getOutstandingFees());
+                disbursementsHistory.setDisbursementsType("SCHOOL FEES");
+
             }else{
                 disbursementsHistory.setReason(paymentDto.getReason());
                 disbursementsHistory.setAmount(paymentDto.getAmount());
+                disbursementsHistory.setDisbursementsType("PERSONAL LOAN");
+
             }
 
             disbursementsHistory.setUserId(user.getId());
@@ -619,7 +657,11 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             String account = user.getPhoneNumber();
             account = account.replace("+256", "");
+            if(!account.startsWith("0")){
+                account = "0"+account;
+            }
             System.out.println("account==>>> " + account);
+
             paymentMap.put("type", "mm");
             paymentMap.put("account", account);
             paymentMap.put("amount", paymentDto.getAmount());
@@ -701,7 +743,7 @@ public class PaymentServiceImpl implements PaymentService {
             InterestCountMaster interestCountMaster = interestCountMasterOptional.get();
             List<DisbursementsHistory> disbursementsHistoryList =  disbursementsRepository.findByPaymentStatusAndCollectionCompleted(DisbursementsStatus.SUCCEEDED.name() , false);
             disbursementsHistoryList.forEach(disbursementsHistory -> {
-                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFistByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
+                DisbursementInterestCount disbursementInterestCount = disbursementInterestCountRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
 
                 Optional<CollectionAmountCalculation> collectionAmountCalculationOptional = collectionAmountCalculationRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
                 CollectionAmountCalculation collectionAmountCalculation = collectionAmountCalculationOptional.orElse(null);
@@ -721,7 +763,7 @@ public class PaymentServiceImpl implements PaymentService {
     private static DisbursementInterestCount weeklyInterestCount(InterestCountMaster interestCountMaster, DisbursementsHistory disbursementsHistory, long interestCountDays, CollectionAmountCalculation collectionAmountCalculation, DisbursementInterestCount disbursementInterestCount) {
         double interestCountAmount = 0;
 
-        if(interestCountDays > 7){
+        if(interestCountDays > 8){
             return buildDisbursementInterestCount(interestCountMaster, disbursementsHistory, collectionAmountCalculation, disbursementInterestCount);
         }
         return null;
@@ -729,7 +771,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
-    private static DisbursementInterestCount buildDisbursementInterestCount(InterestCountMaster interestCountMaster, DisbursementsHistory disbursementsHistory, CollectionAmountCalculation collectionAmountCalculation, DisbursementInterestCount disbursementInterestCount) {
+    public static DisbursementInterestCount buildDisbursementInterestCount(InterestCountMaster interestCountMaster, DisbursementsHistory disbursementsHistory, CollectionAmountCalculation collectionAmountCalculation, DisbursementInterestCount disbursementInterestCount) {
         double interestCountAmount;
         DisbursementInterestCount   disbursementInterestCountNew = new DisbursementInterestCount();
 
@@ -744,9 +786,7 @@ public class PaymentServiceImpl implements PaymentService {
             interestCountAmount = disbursementInterestCount != null ? disbursementInterestCount.getEndingBalance() : disbursementsHistory.getAmount();
         }
 
-        double interestAmountMultiple = interestCountAmount * interestCountMaster.getInterestRate();
-        double finalInterestAmount = interestAmountMultiple / 100;
-
+        double finalInterestAmount = getFinalInterestAmount(interestCountMaster, interestCountAmount);
 
         disbursementInterestCountNew.setInterestAmount((long) finalInterestAmount);
         disbursementInterestCountNew.setBeginningBalance((long) interestCountAmount);
@@ -755,10 +795,19 @@ public class PaymentServiceImpl implements PaymentService {
         return disbursementInterestCountNew;
     }
 
+    public static double getFinalInterestAmount(InterestCountMaster interestCountMaster, double interestCountAmount) {
+        double interestAmountMultiple = interestCountAmount * interestCountMaster.getInterestRate();
+        double finalInterestAmount = interestAmountMultiple / 100;
 
-    private void buildAndSaveMonthlyCollectionInfo(DisbursementsHistory disbursementsHistory , MonthlyCollectionInfo monthlyCollectionInfoOld){
+        BigDecimal bd = new BigDecimal(finalInterestAmount);
+        bd = bd.setScale(-3, RoundingMode.UP);
+
+        return bd.doubleValue();
+    }
+
+
+    public static MonthlyCollectionInfo buildAndSaveMonthlyCollectionInfo(DisbursementsHistory disbursementsHistory, MonthlyCollectionInfo monthlyCollectionInfoOld , InterestCountMaster interestCountMaster){
         MonthlyCollectionInfo monthlyCollectionInfo = new MonthlyCollectionInfo();
-        InterestCountMaster interestCountMaster = interestRepository.findFirstByOrderById().get();
         monthlyCollectionInfo.setDisbursementsHistory(disbursementsHistory);
 
         if(monthlyCollectionInfoOld !=null){
@@ -767,7 +816,7 @@ public class PaymentServiceImpl implements PaymentService {
             monthlyCollectionInfo.setMonthStartDate(startDate);
             monthlyCollectionInfo.setMonthEndDate(startDate.plusMonths(1));
             monthlyCollectionInfo.setTotalPayAmountInMonth(0.0);
-            if(disbursementsHistory.getDisbursementEndDate().isEqual(startDate.plusMonths(1))){
+            if(disbursementsHistory.getDisbursementEndDate().getMonth() == startDate.plusMonths(1).getMonth()){
                 monthlyCollectionInfo.setLastMonth(true);
             }
         }else {
@@ -777,7 +826,7 @@ public class PaymentServiceImpl implements PaymentService {
             monthlyCollectionInfo.setMonthEndDate(disbursementsHistory.getCreatedOn().toLocalDate().plusMonths(1));
             monthlyCollectionInfo.setTotalPayAmountInMonth(0.0);
         }
-        monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
+        return monthlyCollectionInfo;
     }
 
 

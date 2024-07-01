@@ -3,6 +3,7 @@ package com.appbackend.example.AppBackend.services.impl;
 import com.appbackend.example.AppBackend.entities.CollectionHistory;
 import com.appbackend.example.AppBackend.entities.DisbursementsHistory;
 import com.appbackend.example.AppBackend.entities.TransactionHistory;
+import com.appbackend.example.AppBackend.enums.PaymentFor;
 import com.appbackend.example.AppBackend.models.ErrorDto;
 import com.appbackend.example.AppBackend.models.SuccessDto;
 import com.appbackend.example.AppBackend.models.TransactionHistoryDto;
@@ -78,11 +79,13 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
         dto.setTransactionId(disbursementsHistory.getDisbursementsTransactionId());
         dto.setStatus(disbursementsHistory.getPaymentStatus());
         dto.setAmount(disbursementsHistory.getAmount());
+        dto.setPaymentFor(PaymentFor.DISBURSEMENT.name());
     }
 
     private void setCollectionHistoryDetails(TransactionHistoryDto dto, CollectionHistory collectionHistory) {
         dto.setTransactionId(collectionHistory.getRequestTransactionId());
         dto.setStatus(collectionHistory.getStatus());
         dto.setAmount(collectionHistory.getPaymentAmount());
+        dto.setPaymentFor(PaymentFor.REPAYMENT.name());
     }
 }

@@ -57,4 +57,6 @@ public class DisbursementHistoryDTO {
 
     private DisbursementInterestDto disbursementInterestInfo;
     private List<CollectionHistoryDTO> collectionHistoryDTOList;
+    private boolean rescheduleEnable;
+    private boolean disbursementCompleted;
 }

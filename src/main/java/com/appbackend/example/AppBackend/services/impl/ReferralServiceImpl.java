@@ -36,12 +36,60 @@ public class ReferralServiceImpl implements ReferralService {
     @Autowired
     private ReferralRepository referralRepository;
 
+//    @Override
+//    public ResponseEntity<?> referralFriend(ReferDto referDto, Authentication authentication) {
+//        User user = (User) authentication.getPrincipal();
+//        Integer userId = user.getId();
+//        Optional<User> optionalUser = userRepository.findById(userId);
+//
+//
+//        String email = referDto.getEmail();
+//        String mobile = referDto.getMobile();
+//
+//        try {
+//            Optional<ReferralInfo> existingReferralByEmail = referralRepository.findByReferalEmail(email);
+//            Optional<ReferralInfo> existingReferralByPhone = referralRepository.findByReferalMobile(mobile);
+//
+//            if (existingReferralByEmail.isPresent()) {
+//                int referringUserIdByEmail = existingReferralByEmail.get().getUserId();
+//                String referringUserFirstNameByEmail = optionalUser.get().getFirstName();
+//                return ResponseEntity.badRequest().body("The email " + email + " is already referred by user " + referringUserFirstNameByEmail);
+//            }
+//
+//            if (existingReferralByPhone.isPresent()) {
+//                int referringUserIdByPhone = existingReferralByPhone.get().getUserId();
+//                String referringUserFirstNameByPhone = optionalUser.get().getFirstName();
+//                return ResponseEntity.badRequest().body("The mobile number " + mobile + " is already referred by user " + referringUserFirstNameByPhone);
+//            }
+//
+//
+//            String combinedData = email + "|" + mobile;
+//            String referalCode = String.valueOf(appCommon.generateUniqueCode());
+//            emailOtpService.sendReferCodeViaEmail(email, referalCode);
+//
+//            ReferralInfo referralInfo = new ReferralInfo();
+//            referralInfo.setReferalMobile(mobile);
+//            referralInfo.setReferalEmail(email);
+//            referralInfo.setUserId(userId);
+//            referralInfo.setDateTime(LocalDateTime.now());
+//            referralInfo.setReferralCode(referalCode);
+//
+//            referralRepository.save(referralInfo);
+//
+//            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Referral Code Sent Successfully")
+//                    .message("Referral Code Sent Successfully.").build();
+//            return ResponseEntity.status(HttpStatus.OK).body(successDto);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
+//        }
+//    }
+
+
     @Override
     public ResponseEntity<?> referralFriend(ReferDto referDto, Authentication authentication) {
         User user = (User) authentication.getPrincipal();
         Integer userId = user.getId();
-        Optional<User> optionalUser = userRepository.findById(userId);
-
 
         String email = referDto.getEmail();
         String mobile = referDto.getMobile();
@@ -50,40 +98,48 @@ public class ReferralServiceImpl implements ReferralService {
             Optional<ReferralInfo> existingReferralByEmail = referralRepository.findByReferalEmail(email);
             Optional<ReferralInfo> existingReferralByPhone = referralRepository.findByReferalMobile(mobile);
 
+            ReferralInfo referralInfo = null;
             if (existingReferralByEmail.isPresent()) {
-                int referringUserIdByEmail = existingReferralByEmail.get().getUserId();
-                String referringUserFirstNameByEmail = optionalUser.get().getFirstName();
-                return ResponseEntity.badRequest().body("The email " + email + " is already referred by user " + referringUserFirstNameByEmail);
+                referralInfo = existingReferralByEmail.get();
+                if (!Objects.equals(referralInfo.getUserId(), userId)) {
+                    return ResponseEntity.badRequest().body("The email " + email + " is already referred by another user.");
+                }
+            } else if (existingReferralByPhone.isPresent()) {
+                referralInfo = existingReferralByPhone.get();
+                if (!Objects.equals(referralInfo.getUserId(), userId)) {
+                    return ResponseEntity.badRequest().body("The mobile number " + mobile + " is already referred by another user.");
+                }
             }
 
-            if (existingReferralByPhone.isPresent()) {
-                int referringUserIdByPhone = existingReferralByPhone.get().getUserId();
-                String referringUserFirstNameByPhone = optionalUser.get().getFirstName();
-                return ResponseEntity.badRequest().body("The mobile number " + mobile + " is already referred by user " + referringUserFirstNameByPhone);
+            if (referralInfo == null) {
+                referralInfo = new ReferralInfo();
+                referralInfo.setReferalMobile(mobile);
+                referralInfo.setReferalEmail(email);
+                referralInfo.setUserId(userId);
+                referralInfo.setDateTime(LocalDateTime.now());
+            } else {
+                // User is referring again, update the date time
+                referralInfo.setDateTime(LocalDateTime.now());
             }
 
-
-            String combinedData = email + "|" + mobile;
             String referalCode = String.valueOf(appCommon.generateUniqueCode());
-            emailOtpService.sendReferCodeViaEmail(email, referalCode);
-
-            ReferralInfo referralInfo = new ReferralInfo();
-            referralInfo.setReferalMobile(mobile);
-            referralInfo.setReferalEmail(email);
-            referralInfo.setUserId(userId);
-            referralInfo.setDateTime(LocalDateTime.now());
             referralInfo.setReferralCode(referalCode);
+            emailOtpService.sendReferCodeViaEmail(email, referalCode);
 
             referralRepository.save(referralInfo);
 
-            SuccessDto successDto = SuccessDto.builder().code(HttpStatus.OK.value()).status("Referral Code Sent Successfully")
-                    .message("Referral Code Sent Successfully.").build();
+            SuccessDto successDto = SuccessDto.builder()
+                    .code(HttpStatus.OK.value())
+                    .status("Referral Code Sent Successfully")
+                    .message("Referral Code Sent Successfully.")
+                    .build();
             return ResponseEntity.status(HttpStatus.OK).body(successDto);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("INTERNAL SERVER ERROR");
         }
     }
+
 
 
 //    @Override

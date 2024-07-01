@@ -6,10 +6,10 @@ import com.appbackend.example.AppBackend.enums.DisbursementsStatus;
 import com.appbackend.example.AppBackend.models.*;
 import com.appbackend.example.AppBackend.repositories.*;
 import com.appbackend.example.AppBackend.services.CollectionService;
+import com.appbackend.example.AppBackend.services.OtpService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.java.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,10 +24,7 @@ import java.math.RoundingMode;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 
 //@Log
@@ -59,6 +56,10 @@ public class CollectionServiceImpl implements CollectionService {
 
     @Autowired
     private MonthlyCollectionInfoRepository monthlyCollectionInfoRepository;
+
+    @Autowired
+    private OtpService otpService;
+
 
     @Override
     public ResponseEntity<?> getRecollectPayment(CollectionDto collectionDto) {
@@ -252,8 +253,9 @@ public class CollectionServiceImpl implements CollectionService {
                 collectionAmountCalculation.setTotalPayAmount(collectionAmountCalculationOld.getTotalPayAmount() + collectionHistory.getPaymentAmount());
                 collectionAmountCalculation.setRemainingPayment(collectionAmountCalculationOld.getRemainingPayment() - collectionHistory.getPaymentAmount());
                 collectionAmountCalculation.setUserId(collectionHistory.getUser().getId());
-                collectionAmountCalculation.setLastPaymentDate(collectionHistory.getPaymentDate());
+                collectionAmountCalculation.setLastTransactionDate(collectionHistory.getPaymentDate());
                 collectionAmountCalculation.setDisbursementsHistory(collectionHistory.getDisbursementsHistory());
+                collectionAmountCalculation.setDescription("Set Default Remaining amount and total pay amount Value");
 
                 collectionAmountCalculationRepository.save(collectionAmountCalculation);
 
@@ -264,6 +266,20 @@ public class CollectionServiceImpl implements CollectionService {
                     monthlyCollectionInfo.setPayMinimumAmount(true);
 
                 monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
+
+                try {
+                    String msg= "";
+                    if(collectionAmountCalculation.getRemainingPayment() > collectionHistory.getPaymentAmount()){
+                        msg = "Thank you for paying part of your loan obligation.";
+                    }else if (collectionAmountCalculation.getRemainingPayment() == collectionHistory.getPaymentAmount()){
+                        msg = "Thank you for fulfilling your loan obligation";
+                    }
+
+                    otpService.sendEmail(collectionHistory.getUser().getEmail(), "Disbursement Successfully", msg);
+                    otpService.sendSms(collectionHistory.getUser().getPhoneNumber(), null, msg);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
 
             }
         }
@@ -301,17 +317,42 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
-    public ResponseEntity<?> reschedulePaymentDate(RescheduleDto rescheduleDto) {
+    public ResponseEntity<?> reschedulePaymentDate(RescheduleDto rescheduleDto, List<String> roles) {
+        log.info("reschedulePaymentDate Method call with role :: " + roles);
         try{
             Optional<DisbursementsHistory> disbursementsHistoryOptional = disbursementsRepository.findById(rescheduleDto.getDisbursementId());
             if(disbursementsHistoryOptional.isPresent()){
                 DisbursementsHistory disbursementsHistory =  disbursementsHistoryOptional.get();
+                List<ReschedulePaymentRecord> reschedulePaymentRecords = reschedulePaymentRecordRepository.findByDisbursementsHistoryId(disbursementsHistory.getId());
+                log.info("reschedulePaymentRecords Size ::  " + reschedulePaymentRecords.size());
+                LocalDate rescheduleDate = LocalDate.now();
+
+                if(reschedulePaymentRecords == null || reschedulePaymentRecords.size() == 1 ){
+                    rescheduleDate = rescheduleDate.plusWeeks(2);
+                }else if(reschedulePaymentRecords.size() == 2){
+                    rescheduleDate = rescheduleDate.plusWeeks(3);
+                }else if (reschedulePaymentRecords.size() > 2){
+                    if(roles.contains("ADMIN")){
+                        rescheduleDate = rescheduleDate.plusMonths(1);
+                    }else {
+                        ErrorDto errorDto = ErrorDto.builder()
+                                .message("You have already reschedule loan two time now only admin can reschedule it.")
+                                .code(400)
+                                .status("ERROR")
+                                .build();
+                        return ResponseEntity.status(404).body(errorDto);
+                    }
+                }
                 MonthlyCollectionInfo monthlyCollectionInfo = monthlyCollectionInfoRepository.findFirstByDisbursementsHistoryIdOrderByIdDesc(disbursementsHistory.getId());
+
+
+
                 if(monthlyCollectionInfo != null){
                     monthlyCollectionInfo.setIsRescheduled(true);
-                    monthlyCollectionInfo.setRescheduleDate(rescheduleDto.getRescheduledDate());
+                    monthlyCollectionInfo.setRescheduleDate(rescheduleDate);
                     monthlyCollectionInfoRepository.save(monthlyCollectionInfo);
                 }
+
                 ReschedulePaymentRecord reschedulePaymentRecord = new ReschedulePaymentRecord();
                 reschedulePaymentRecord.setRescheduleDate(LocalDate.now());
                 reschedulePaymentRecord.setMonthlyCollectionInfo(monthlyCollectionInfo);
@@ -321,7 +362,7 @@ public class CollectionServiceImpl implements CollectionService {
                 reschedulePaymentRecordRepository.save(reschedulePaymentRecord);
 
                 SuccessDto successDto = SuccessDto.builder()
-                        .message("Reschedule successfully")
+                        .message("Reschedule successfully till :: " + rescheduleDate)
                         .code(200)
                         .status("Success")
                         .build();

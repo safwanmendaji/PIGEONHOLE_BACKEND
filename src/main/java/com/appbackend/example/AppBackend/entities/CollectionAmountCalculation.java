@@ -27,7 +27,9 @@ public class CollectionAmountCalculation {
     private Double remainingPayment;
     private Double payAmount;
     private Double totalPayAmount;
-    private LocalDateTime lastPaymentDate;
+    private LocalDateTime lastTransactionDate;
+    private String description;
+
 
 
 }
